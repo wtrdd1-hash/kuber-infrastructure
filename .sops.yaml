@@ -2,9 +2,13 @@
 # Only the values under data/stringData are encrypted, so the surrounding
 # Kubernetes manifest stays readable in review and in git history.
 #
-# Replace the recipient below with your own, from `age-keygen`. The private
-# half goes into the cluster as the `sops-age` secret in flux-system and
-# nowhere else:
+# The recipient below is this cluster's. Its private half lives on the machine
+# at ~/.config/sops/age/keys.txt for the administrator account, and reaches the
+# cluster as the `sops-age` secret in flux-system -- put there by the
+# flux-sops-key unit in kuber-nixos-flakes, on every boot, so a machine rebuilt
+# from that flake can read its own secrets again.
+#
+# For a cluster built another way:
 #
 #     age-keygen -o age.agekey
 #     kubectl -n flux-system create secret generic sops-age \
@@ -13,4 +17,4 @@
 creation_rules:
   - path_regex: \.sops\.ya?ml$
     encrypted_regex: ^(data|stringData)$
-    age: age1REPLACE0THIS0WITH0YOUR0OWN0AGE0PUBLIC0KEY0000000000000000
+    age: age1t4wmyc7dmze7f9sg4lj7k9pzwr6qcwdfjlwlmmg0uw6dsz0z25sqa9nlqa
