@@ -6,6 +6,12 @@
 # the same with hostPort -- the alternative is a LoadBalancer address on the
 # inward NIC, which nothing on the internet can reach, so no mail would arrive.
 #
+# hostNetwork rather than hostPort, and not by preference: Cilium implements
+# hostPort only with kube-proxy replacement on, and the portmap chaining
+# plugin is not installed either. hostPort is then accepted, ignored, and
+# nothing binds -- the pod listens inside its own namespace and no mail
+# arrives, with no error anywhere to say why.
+#
 # The firewall in kuber-nixos-flakes opens exactly these five on the outward
 # NIC. Nothing else is opened there.
 ---
@@ -40,8 +46,12 @@ spec:
       labels:
         app.kubernetes.io/name: mailserver
     spec:
-      # hostPort binds on the node, so two of these could never run side by
-      # side. One replica, and a recreate rather than a rolling update.
+      # The pod is on the node's network stack, so it binds the node's ports
+      # directly and two of these could never run side by side. One replica.
+      hostNetwork: true
+      # With hostNetwork the pod would otherwise use the node's resolver and
+      # lose cluster DNS.
+      dnsPolicy: ClusterFirstWithHostNet
       hostname: mail
       containers:
         - name: dms
@@ -65,11 +75,11 @@ spec:
             - { name: ENABLE_FETCHMAIL, value: "0" }
             - { name: ENABLE_MANAGESIEVE, value: "0" }
           ports:
-            - { name: smtp, containerPort: 25, hostPort: 25 }
-            - { name: imap, containerPort: 143, hostPort: 143 }
-            - { name: submissions, containerPort: 465, hostPort: 465 }
-            - { name: submission, containerPort: 587, hostPort: 587 }
-            - { name: imaps, containerPort: 993, hostPort: 993 }
+            - { name: smtp, containerPort: 25 }
+            - { name: imap, containerPort: 143 }
+            - { name: submissions, containerPort: 465 }
+            - { name: submission, containerPort: 587 }
+            - { name: imaps, containerPort: 993 }
           securityContext:
             # fail2ban writes iptables rules, and postfix and dovecot change
             # uid per delivery. docker-mailserver documents this set; running
