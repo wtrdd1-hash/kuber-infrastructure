@@ -1,0 +1,75 @@
+# Roundcube. HTTP, so unlike the mail server itself this one goes through
+# Traefik and the tunnel like everything else.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webmail
+  namespace: mail
+spec:
+  selector:
+    app.kubernetes.io/name: webmail
+  ports:
+    - { name: http, port: 80, targetPort: 80 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webmail
+  namespace: mail
+spec:
+  replicas: 1
+  # Its database is a sqlite file on a ReadWriteOnce volume; two pods cannot
+  # hold it, and a rolling update would wait for one that never starts.
+  strategy: { type: Recreate }
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: webmail
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: webmail
+    spec:
+      containers:
+        - name: roundcube
+          image: roundcube/roundcubemail:1.6.11-apache
+          env:
+            # The mail server by its Service name now, rather than the docker
+            # network alias `easy-mailserver` it used before.
+            - { name: ROUNDCUBEMAIL_DEFAULT_HOST, value: mailserver }
+            - { name: ROUNDCUBEMAIL_DEFAULT_PORT, value: "143" }
+            - { name: ROUNDCUBEMAIL_SMTP_SERVER, value: mailserver }
+            - { name: ROUNDCUBEMAIL_SMTP_PORT, value: "25" }
+            - { name: ROUNDCUBEMAIL_USERNAME_DOMAIN, value: easy-scraping.com }
+            - { name: ROUNDCUBEMAIL_DB_TYPE, value: sqlite }
+            - { name: ROUNDCUBEMAIL_DB_DIR, value: /var/www/html/db }
+            # The custom skin lives on the same volume as the database, under
+            # the directory Roundcube loads skins from.
+            - { name: ROUNDCUBEMAIL_SKIN, value: easy-mail }
+          ports:
+            - { name: http, containerPort: 80 }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 512Mi }
+          volumeMounts:
+            - { name: db, mountPath: /var/www/html/db }
+      volumes:
+        - { name: db, persistentVolumeClaim: { claimName: webmail-data } }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: webmail
+  namespace: mail
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: mail.easy-scraping.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: webmail
+                port: { number: 80 }

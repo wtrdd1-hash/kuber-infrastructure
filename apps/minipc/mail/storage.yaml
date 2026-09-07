@@ -1,0 +1,45 @@
+# Five volumes because docker-mailserver keeps five things apart, and the
+# important one is mail-data: the mailboxes. Everything else can be rebuilt
+# from configuration; a lost mailbox is lost.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: mail-data, namespace: mail }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 20Gi } }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: mail-state, namespace: mail }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 5Gi } }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: mail-config, namespace: mail }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 1Gi } }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: mail-certs, namespace: mail }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 128Mi } }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: mail-logs, namespace: mail }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 2Gi } }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: webmail-data, namespace: mail }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 1Gi } }

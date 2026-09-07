@@ -1,0 +1,93 @@
+# docker-mailserver, on the ports it has to be on.
+#
+# Mail is the one service here that cannot go through the Cloudflare tunnel or
+# an Ingress: SMTP, IMAP and submission are raw TCP, and the tunnel carries
+# HTTP. The container bound these ports on the host before, and the pod does
+# the same with hostPort -- the alternative is a LoadBalancer address on the
+# inward NIC, which nothing on the internet can reach, so no mail would arrive.
+#
+# The firewall in kuber-nixos-flakes opens exactly these five on the outward
+# NIC. Nothing else is opened there.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mailserver
+  namespace: mail
+spec:
+  selector:
+    app.kubernetes.io/name: mailserver
+  ports:
+    - { name: smtp, port: 25, targetPort: 25 }
+    - { name: imap, port: 143, targetPort: 143 }
+    - { name: submissions, port: 465, targetPort: 465 }
+    - { name: submission, port: 587, targetPort: 587 }
+    - { name: imaps, port: 993, targetPort: 993 }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mailserver
+  namespace: mail
+spec:
+  serviceName: mailserver
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mailserver
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mailserver
+    spec:
+      # hostPort binds on the node, so two of these could never run side by
+      # side. One replica, and a recreate rather than a rolling update.
+      hostname: mail
+      containers:
+        - name: dms
+          # Pinned to what was running. `latest` on a mail server means an
+          # upgrade arrives the next time a pod restarts, which is not a
+          # moment anybody chose.
+          image: ghcr.io/docker-mailserver/docker-mailserver:15.1.0
+          env:
+            - { name: OVERRIDE_HOSTNAME, value: direct-mail.easy-scraping.com }
+            - { name: DMS_VMAIL_UID, value: "5000" }
+            - { name: DMS_VMAIL_GID, value: "5000" }
+            - { name: SSL_TYPE, value: manual }
+            - { name: SSL_CERT_PATH, value: /tmp/dms/custom-certs/public.crt }
+            - { name: SSL_KEY_PATH, value: /tmp/dms/custom-certs/private.key }
+            - { name: TLS_LEVEL, value: modern }
+            - { name: LOG_LEVEL, value: info }
+            - { name: ENABLE_FAIL2BAN, value: "1" }
+            - { name: ENABLE_POSTGREY, value: "0" }
+            - { name: ENABLE_SPAMASSASSIN, value: "0" }
+            - { name: ENABLE_CLAMAV, value: "0" }
+            - { name: ENABLE_FETCHMAIL, value: "0" }
+            - { name: ENABLE_MANAGESIEVE, value: "0" }
+          ports:
+            - { name: smtp, containerPort: 25, hostPort: 25 }
+            - { name: imap, containerPort: 143, hostPort: 143 }
+            - { name: submissions, containerPort: 465, hostPort: 465 }
+            - { name: submission, containerPort: 587, hostPort: 587 }
+            - { name: imaps, containerPort: 993, hostPort: 993 }
+          securityContext:
+            # fail2ban writes iptables rules, and postfix and dovecot change
+            # uid per delivery. docker-mailserver documents this set; running
+            # it unprivileged is not supported upstream.
+            capabilities:
+              add: [NET_ADMIN, SYS_PTRACE]
+          resources:
+            requests: { cpu: 100m, memory: 512Mi }
+            limits: { memory: 2Gi }
+          volumeMounts:
+            - { name: config, mountPath: /tmp/docker-mailserver }
+            - { name: data, mountPath: /var/mail }
+            - { name: state, mountPath: /var/mail-state }
+            - { name: certs, mountPath: /tmp/dms/custom-certs }
+            - { name: logs, mountPath: /var/log/mail }
+      volumes:
+        - { name: config, persistentVolumeClaim: { claimName: mail-config } }
+        - { name: data, persistentVolumeClaim: { claimName: mail-data } }
+        - { name: state, persistentVolumeClaim: { claimName: mail-state } }
+        - { name: certs, persistentVolumeClaim: { claimName: mail-certs } }
+        - { name: logs, persistentVolumeClaim: { claimName: mail-logs } }
