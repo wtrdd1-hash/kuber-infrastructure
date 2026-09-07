@@ -53,8 +53,10 @@ spec:
             limits: { memory: 512Mi }
           volumeMounts:
             - { name: db, mountPath: /var/www/html/db }
+            - { name: skin, mountPath: /var/www/html/skins/easy-mail }
       volumes:
         - { name: db, persistentVolumeClaim: { claimName: webmail-data } }
+        - { name: skin, persistentVolumeClaim: { claimName: webmail-skin } }
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
