@@ -1,0 +1,50 @@
+# What the edge nginx did, as routing rules.
+#
+# The old container was an nginx in front of both services. Two things it did
+# are worth keeping and are kept here: only these hostnames are served (its
+# default server answered 444 and dropped everything else -- an Ingress simply
+# does not match, which has the same effect), and two paths go to the backend
+# while everything else goes to the frontend.
+#
+# Everything arrives over the Cloudflare tunnel, which terminates TLS at
+# Cloudflare's edge and speaks plain HTTP to Traefik, so there is no
+# certificate here to manage.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wdmvp
+  namespace: wdmvp
+  annotations:
+    # Longer prefixes win in Traefik, so /socket.io/ and the interactions path
+    # are matched before the / that follows them.
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: easy-scraping.com
+      http: &wdmvpPaths
+        paths:
+          # Discord posts interactions here and expects the backend itself.
+          - path: /api/v1/integrations/discord/interactions
+            pathType: Prefix
+            backend:
+              service:
+                name: wdmvp-backend
+                port: { number: 3000 }
+          # Websockets, which Next.js does not proxy.
+          - path: /socket.io/
+            pathType: Prefix
+            backend:
+              service:
+                name: wdmvp-backend
+                port: { number: 3000 }
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wdmvp-frontend
+                port: { number: 3000 }
+    - host: www.easy-scraping.com
+      http: *wdmvpPaths
+    - host: test.easy-scraping.com
+      http: *wdmvpPaths

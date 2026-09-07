@@ -1,0 +1,88 @@
+# The database. A StatefulSet rather than a Deployment: its volume is the data,
+# and a rolling update that started a second postgres on the same directory
+# would corrupt it. One replica, and `OrderedReady` will not start a new pod
+# until the old one is gone.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wdmvp-db
+  namespace: wdmvp
+spec:
+  # Headless: nothing load-balances a single database, and the StatefulSet
+  # wants a stable name for its pod.
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: wdmvp-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: wdmvp-db
+  namespace: wdmvp
+spec:
+  serviceName: wdmvp-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wdmvp-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wdmvp-db
+    spec:
+      securityContext:
+        # The postgres image's own uid. Set on the pod so the volume the
+        # provisioner creates is owned by it -- a fresh directory belongs to
+        # root otherwise, and initdb refuses to use it.
+        fsGroup: 70
+      containers:
+        - name: postgres
+          image: postgres:17.11-alpine
+          env:
+            # The superuser is the migrator account, which is what the dump
+            # this database was restored from was taken as.
+            - name: POSTGRES_USER
+              value: moneyverse_migrator
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: wdmvp-db-superuser, key: POSTGRES_PASSWORD }
+            # Somewhere for the cluster to exist before the dump creates the
+            # real database; the dump carries its own CREATE DATABASE.
+            - name: POSTGRES_DB
+              value: postgres
+            # postgres refuses to initialise into a directory that is not
+            # empty, and a fresh PersistentVolume has a lost+found in it.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - name: postgres
+              containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U moneyverse_migrator"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U moneyverse_migrator"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 2Gi }
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 20Gi

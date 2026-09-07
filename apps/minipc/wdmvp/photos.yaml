@@ -1,0 +1,13 @@
+# Where the backend writes uploaded photos. A bind mount on the old machine
+# (/data/wtrdd/moneyverse/photos/wdmvp); a volume here, so it survives the pod
+# and is restored into rather than rebuilt.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wdmvp-photos
+  namespace: wdmvp
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 20Gi

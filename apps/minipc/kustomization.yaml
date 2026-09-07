@@ -1,5 +1,6 @@
-# Workloads for the minipc cluster. Empty until the services being migrated
-# from the machine's previous life arrive here one at a time.
+# Workloads for the minipc cluster, migrated from the containers the machine
+# ran before it was rebuilt.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-resources: []
+resources:
+  - wdmvp
