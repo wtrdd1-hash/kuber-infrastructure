@@ -1,10 +1,9 @@
 # What the controllers are told to build.
 #
-# No sops decryption yet: this cluster has no age key installed, and asking
-# Flux to decrypt with a secret that does not exist fails the whole
-# Kustomization rather than the one file that needed it. Add it back together
-# with the key -- kuber-nixos-flakes installs it from
-# ~/.config/sops/age/keys.txt as the `sops-age` secret.
+# Decryption is on: the age key is installed. kuber-nixos-flakes' flux-sops-key
+# unit reads ~/.config/sops/age/keys.txt on the machine and puts it in the
+# cluster as the `sops-age` secret on every boot, so a machine rebuilt from
+# that flake can read its own secrets again.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -21,6 +20,10 @@ spec:
     name: flux-system
   path: ./infrastructure/configs
   prune: true
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
   # The pool in ./infrastructure/configs is the address range of the cluster
   # this repository was written for. Patched rather than copied so there is
   # still one CiliumLoadBalancerIPPool in the repository to read.

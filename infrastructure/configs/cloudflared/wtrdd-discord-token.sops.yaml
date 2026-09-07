@@ -1,0 +1,26 @@
+# Authenticates the "wtrdd-discord" connector to one specific tunnel. Encrypted with
+# the cluster age key; kustomize-controller decrypts it in-cluster, so the
+# plaintext never reaches git. Managed by cf-tunnel.
+apiVersion: v1
+kind: Secret
+metadata:
+    name: cloudflared-wtrdd-discord-token
+    namespace: cloudflared
+type: Opaque
+stringData:
+    token: ENC[AES256_GCM,data:COQXlAimjwR63ob4cFEKcrk3YUpoUpBoKztfrVq0p6IMsOr7uwN4E18zIEQPthQFH/GZ4KC2Hu5CwYMFg00Y3VjxYaYA9E5GuoW3vJU5tEpuB1O+LcZeihO1FvaJBwvR24FqxiV8f2sRQjgphmXglJvHzAudIy+z4dE7J3kUldLPR/+MosevAIGzjSH2X8uiFzzErriL9pOmx8ug62igQpgM1bEx3eig0jEGoQ4jMtJfMbTzyu7v3KwA3i25h3+oPjRLtLpy0mwB4FHOo3zo4c7faYme+rMyws/A0aQ7ac9V5NGmjlNXvH8Z75r9uiVG,iv:bxC0yrEN5ctO/BH1pFW/Y8he7xT/58feDdGUrBVMHKo=,tag:SnKcWV2zTTEf+pIBg3Jmpw==,type:str]
+sops:
+    age:
+        - enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBxb0NmUVJnSFgyVHdaNEN1
+            TFMrN0dpcENJdUp1ZXJtL1BOYUhwZlBFcEc4CkJ2bS9qTnZEOUZvdkQwMCtmSTZ0
+            RzBxNVMyM3Z4d3lxWXBIbzFMY2MrWkEKLS0tIGxnMEZQcmgrZkFhZm0zNVVKSjNi
+            Wk5ZT2Q4Z3ZLTklwcU5TUUU4Sm5od1UKzQLHSjdf5GJTrIwTNf+SktJMqLvvI3/0
+            m2Kn+8KqpQNhmkRMxAMAu8hALQ/YpjacYkXPamo5pZIzgkMkLZbV4w==
+            -----END AGE ENCRYPTED FILE-----
+          recipient: age1t4wmyc7dmze7f9sg4lj7k9pzwr6qcwdfjlwlmmg0uw6dsz0z25sqa9nlqa
+    encrypted_regex: ^(data|stringData)$
+    lastmodified: "2026-09-07T16:12:56Z"
+    mac: ENC[AES256_GCM,data:O9BBJqAuZUVvIbARpQbn9yOXQT+Mpj1ImGAxTstA3LFJqBu2k31eI2h9YWEwj+0iZGqe3/4frHEY4LPbb0TsNeuPMJ5Q84rBHPdkk6Vg6Zp1y+vj6Nhr5thK7LfTlv4zhAx7Q+3QLL8/FGgbxiafsAEq+4lRnjDdBrggilP3jfM=,iv:aqClF3aKeKZA2Iy+iLzYIiLp4NeC1dBrz89mxlW0I2U=,tag:QzbyX6gEqd74pXJuMnictg==,type:str]
+    version: 3.13.3
