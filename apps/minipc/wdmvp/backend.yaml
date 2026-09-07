@@ -69,6 +69,36 @@ spec:
                 secretKeyRef: { name: wdmvp-app, key: DB_NAME }
             - name: DATABASE_URL
               value: postgresql://moneyverse_app:$(APP_DB_PASSWORD)@wdmvp-db:5432/$(DB_NAME)
+
+            # Two more connections the compose file assembled the same way,
+            # each as a role with less than the application's own. Without
+            # them the backend starts and quietly says "no collector
+            # credential configured; not collecting".
+            - name: STATUS_COLLECTOR_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: wdmvp-app, key: STATUS_COLLECTOR_PASSWORD }
+            - name: STATUS_COLLECTOR_DATABASE_URL
+              value: postgresql://moneyverse_status_collector:$(STATUS_COLLECTOR_PASSWORD)@wdmvp-db:5432/$(DB_NAME)
+            - name: RECONCILER_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: wdmvp-app, key: RECONCILER_PASSWORD }
+            - name: RECONCILER_DATABASE_URL
+              value: postgresql://moneyverse_reconciler:$(RECONCILER_PASSWORD)@wdmvp-db:5432/$(DB_NAME)
+
+            # Defaults that lived in the compose file rather than in .env, so
+            # they arrived with the stack and not with the secret. The image's
+            # own defaults are not the same: leave MARKET_TICKER_ENABLED out
+            # and the backend logs "market ticker disabled; prices will not
+            # move on their own", which is a running site with a frozen
+            # economy rather than an error anybody would notice.
+            - name: MARKET_TICKER_ENABLED
+              value: "true"
+            - name: MARKET_TICK_INTERVAL_MS
+              value: "1000"
+            - name: STATUS_COLLECT_INTERVAL_MS
+              value: "30000"
+            - name: ADMIN_TOTP_KEY_ID
+              value: default
           envFrom:
             # Everything else the compose file passed through: base URL, OAuth
             # clients, encryption keys, Discord. Deliberately not the database
