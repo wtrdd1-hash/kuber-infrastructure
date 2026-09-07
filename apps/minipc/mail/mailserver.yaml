@@ -74,6 +74,14 @@ spec:
             - { name: ENABLE_CLAMAV, value: "0" }
             - { name: ENABLE_FETCHMAIL, value: "0" }
             - { name: ENABLE_MANAGESIEVE, value: "0" }
+            # docker-mailserver looks for eth0 to work out its own address.
+            # On hostNetwork there is no eth0, and it does not degrade: it
+            # logs "Detecting the container IP address failed" and shuts the
+            # mail server down while supervisord keeps the container up.
+            - { name: NETWORK_INTERFACE, value: eno1 }
+            # Nothing to permit: there is no docker network here, and the pod
+            # is on the node's stack.
+            - { name: PERMIT_DOCKER, value: none }
           ports:
             - { name: smtp, containerPort: 25 }
             - { name: imap, containerPort: 143 }
@@ -86,6 +94,20 @@ spec:
             # it unprivileged is not supported upstream.
             capabilities:
               add: [NET_ADMIN, SYS_PTRACE]
+          # Without this the pod reports Ready as soon as supervisord starts,
+          # and supervisord stays up whether or not the mail server under it
+          # did. That is how a mail server that had already shut itself down
+          # sat there as 1/1 Running.
+          readinessProbe:
+            tcpSocket: { port: 25 }
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket: { port: 25 }
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            failureThreshold: 3
           resources:
             requests: { cpu: 100m, memory: 512Mi }
             limits: { memory: 2Gi }
