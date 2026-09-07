@@ -1,0 +1,12 @@
+# The HelmRelease below lives in this namespace, so it has to exist before
+# Flux can create the object at all.
+#
+# spec.install.createNamespace on the HelmRelease does not cover this: it tells
+# Helm to create the namespace it installs *into*, which happens later and only
+# if the HelmRelease was accepted in the first place. Without this the
+# Kustomization fails with "namespaces \"local-path-storage\" not found" and
+# everything that waits on storage waits forever.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: local-path-storage
