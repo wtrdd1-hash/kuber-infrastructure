@@ -25,3 +25,22 @@ spec:
   # Blocks infrastructure-configs until these are actually Ready, not merely
   # applied -- which is the point of the split.
   wait: true
+
+  # Traefik pins its LoadBalancer address, for the reason its own comment
+  # gives: the address ends up in routes and in DNS, so it must not move
+  # because the service was recreated. The pinned value is an address in the
+  # pool this repository was written against, and this cluster's pool is
+  # somewhere else -- an address outside the pool is never assigned, and the
+  # service sits <pending> with the label correctly in place, which is a
+  # confusing way to fail.
+  #
+  # .201 rather than .200: /29 makes .200 the network address.
+  patches:
+    - target:
+        kind: HelmRelease
+        name: traefik
+        namespace: traefik
+      patch: |
+        - op: replace
+          path: /spec/values/service/annotations/lbipam.cilium.io~1ips
+          value: "192.168.100.201"
