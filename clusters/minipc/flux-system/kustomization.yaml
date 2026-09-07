@@ -1,0 +1,13 @@
+# Flux managing itself. `flux install --export` wrote gotk-components.yaml and
+# `flux create source|kustomization --export` wrote gotk-sync.yaml, which is
+# what `flux bootstrap` would have committed here -- done by hand because this
+# repository is public, so Flux reads it over HTTPS with no deploy key and no
+# GitHub token anywhere on the machine.
+#
+# Upgrading Flux is then a new `flux install --export` over gotk-components.yaml
+# and a commit, which Flux applies to itself.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - gotk-components.yaml
+  - gotk-sync.yaml
