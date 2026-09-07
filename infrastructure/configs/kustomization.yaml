@@ -12,8 +12,5 @@ resources:
   #
   # - cloudflare-api-token.sops.yaml
   - cluster-issuer.yaml
-  - rook-ceph-cluster.yaml
-  - ceph-csi-rbac
-  - ceph-csi-driver.yaml
   - cloudflared
   - cilium-lb-ippool.yaml

@@ -7,4 +7,3 @@ resources:
   - cert-manager.yaml
   - kubelet-csr-approver.yaml
   - traefik.yaml
-  - rook-ceph-operator.yaml

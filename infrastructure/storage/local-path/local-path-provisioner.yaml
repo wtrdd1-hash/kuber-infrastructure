@@ -1,0 +1,89 @@
+# Persistent volumes from a directory on the node.
+#
+# The other option in this repository is Rook, under ../rook. Rook is the right
+# answer for a cluster with several machines and several disks; it is the wrong
+# one for a single node, where every replica lands on the same disk and "three
+# replicas" means three copies of the data that die together. A node that is
+# alone should say so, rather than run a distributed storage system with
+# nothing to distribute to.
+#
+# What this gives up is real: a volume here lives on one node and does not
+# follow a pod that moves. On a single node nothing moves. Adding a second node
+# later means moving to Rook and migrating the data, which is a decision to
+# make once there is a second machine to make it with.
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: local-path-provisioner
+  namespace: flux-system
+spec:
+  interval: 12h
+  url: https://github.com/rancher/local-path-provisioner
+  # A tag, not a branch: the chart and the image version travel together, and
+  # a branch would upgrade the thing holding every database in this cluster
+  # whenever upstream pushed.
+  ref:
+    tag: v0.0.37
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: local-path-provisioner
+  namespace: local-path-storage
+spec:
+  interval: 1h
+  releaseName: local-path-provisioner
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 2
+      remediateLastFailure: false
+  chart:
+    spec:
+      chart: deploy/chart/local-path-provisioner
+      sourceRef:
+        kind: GitRepository
+        name: local-path-provisioner
+        namespace: flux-system
+  values:
+    # The disk the machine set aside for volumes. modules/disk.nix in
+    # kuber-nixos-flakes formats a whole SSD and mounts it here, so this is a
+    # filesystem of its own rather than a directory competing with / for space
+    # -- a database filling up should not also stop the node from booting.
+    nodePathMap:
+      - node: DEFAULT_PATH_FOR_NON_LISTED_NODES
+        paths:
+          - /var/lib/local-path-provisioner
+
+    storageClass:
+      create: true
+      name: local-path
+      # The only class here, so a PersistentVolumeClaim that names none should
+      # still get a volume rather than sit Pending with nothing to explain it.
+      defaultClass: true
+      # Retain, not Delete. What lives on this cluster is mail, databases and
+      # the photos of a running service; deleting a PVC by accident should
+      # leave the directory on disk to be recovered from, not take the data
+      # with it. The cost is that removed volumes have to be cleared by hand,
+      # which is the cheaper of the two mistakes.
+      reclaimPolicy: Retain
+      # Bind when a pod is scheduled, not before: the volume is a directory on
+      # one particular node, so it cannot be provisioned until it is known
+      # which node that is.
+      volumeBindingMode: WaitForFirstConsumer
+
+    # One node, one provisioner. Two would race to create the same directory.
+    replicaCount: 1
+
+    # A single-node cluster removes the control-plane taint, or nothing would
+    # schedule at all -- so this is not needed today. It is here for the day a
+    # worker joins and the taint goes back on: the provisioner would otherwise
+    # be evicted to the new node while the disk it hands out stays on this one.
+    tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule

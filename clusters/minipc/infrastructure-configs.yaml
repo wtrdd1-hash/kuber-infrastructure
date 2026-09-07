@@ -1,0 +1,39 @@
+# What the controllers are told to build.
+#
+# No sops decryption yet: this cluster has no age key installed, and asking
+# Flux to decrypt with a secret that does not exist fails the whole
+# Kustomization rather than the one file that needed it. Add it back together
+# with the key -- kuber-nixos-flakes installs it from
+# ~/.config/sops/age/keys.txt as the `sops-age` secret.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infrastructure-configs
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: infrastructure-storage
+  interval: 30m
+  retryInterval: 2m
+  timeout: 25m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./infrastructure/configs
+  prune: true
+  # The pool in ./infrastructure/configs is the address range of the cluster
+  # this repository was written for. Patched rather than copied so there is
+  # still one CiliumLoadBalancerIPPool in the repository to read.
+  #
+  # 192.168.100.200/29 is on the inward NIC, above the range dnsmasq hands out
+  # (.50-.100) so a leased address and a service address can never be the same
+  # one. Nothing on the internet reaches these: what does arrives through the
+  # tunnel.
+  patches:
+    - target:
+        kind: CiliumLoadBalancerIPPool
+        name: lan-pool
+      patch: |
+        - op: replace
+          path: /spec/blocks/0/cidr
+          value: 192.168.100.200/29

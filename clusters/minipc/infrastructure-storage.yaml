@@ -1,0 +1,23 @@
+# One machine, so a directory on its second SSD rather than Ceph across nodes
+# that do not exist. See infrastructure/storage/README.md for why that is a
+# different tool rather than a smaller one.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infrastructure-storage
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: infrastructure-controllers
+  interval: 30m
+  retryInterval: 2m
+  timeout: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./infrastructure/storage/local-path
+  prune: true
+  # Blocks everything below until a StorageClass actually exists. Without this
+  # the first workload with a PersistentVolumeClaim sits Pending with nothing
+  # on the cluster to say why.
+  wait: true

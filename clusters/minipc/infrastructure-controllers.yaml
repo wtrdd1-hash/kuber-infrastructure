@@ -1,5 +1,6 @@
-# Custom resources belonging to the controllers above: the ACME issuers and
-# the Ceph cluster, plus the Cloudflare token they need.
+# The operators and controllers themselves. Split from the configs below
+# because the things in configs are custom resources these controllers define,
+# so applying both at once fails on a CRD that does not exist yet.
 # The manifests live in ./infrastructure at the repo root rather than under
 # clusters/<your-cluster>, because the flux-system Kustomization scans everything below
 # clusters/<your-cluster> recursively. Anything left there is applied with no ordering
@@ -8,23 +9,19 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: infrastructure-configs
+  name: infrastructure-controllers
   namespace: flux-system
 spec:
-  dependsOn:
-    - name: infrastructure-storage
   interval: 30m
   retryInterval: 2m
+  # Generous: three Helm charts pull their images over a home connection the
+  # first time, and a timeout here would fail the whole set.
   timeout: 25m
   sourceRef:
     kind: GitRepository
     name: flux-system
-  path: ./infrastructure/configs
+  path: ./infrastructure/controllers
   prune: true
-  # cloudflare-api-token.sops.yaml is committed encrypted; kustomize-controller
-  # decrypts it in-cluster with the age key held in the sops-age secret, so the
-  # plaintext token never reaches git.
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
+  # Blocks infrastructure-configs until these are actually Ready, not merely
+  # applied -- which is the point of the split.
+  wait: true

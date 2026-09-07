@@ -1,0 +1,11 @@
+# Rook: the storage layer for a cluster with several machines and several
+# disks. The operator and the CephCluster it builds are together here because
+# they are one choice -- a cluster picks this directory or ../local-path, not
+# pieces of both.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - rook-ceph-operator.yaml
+  - rook-ceph-cluster.yaml
+  - ceph-csi-rbac
+  - ceph-csi-driver.yaml
