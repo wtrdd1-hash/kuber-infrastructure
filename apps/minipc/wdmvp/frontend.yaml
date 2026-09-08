@@ -33,7 +33,7 @@ spec:
         runAsGroup: 1000
       containers:
         - name: frontend
-          image: ghcr.io/wtrdd1-hash/wdmv/frontend:a077e88454aa06b34557c7bdc11a4e5edaa4f33f-production
+          image: ghcr.io/wtrdd1-hash/wdmv/frontend:ffcdc5b0d2878639639ca48747f09ed8532da4d7-production
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

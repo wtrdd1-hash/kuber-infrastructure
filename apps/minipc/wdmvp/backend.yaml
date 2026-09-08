@@ -42,7 +42,7 @@ spec:
           # Not pullable: this is a private package of another account. It is
           # in containerd because it was imported from the machine's backup,
           # which is the only copy that exists here.
-          image: ghcr.io/wtrdd1-hash/wdmv/backend:a5e4af99e5b4cfd3b1fd7d4e846e4086dd939aed-production
+          image: ghcr.io/wtrdd1-hash/wdmv/backend:ffcdc5b0d2878639639ca48747f09ed8532da4d7-production
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
