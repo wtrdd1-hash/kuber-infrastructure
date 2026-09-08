@@ -1,0 +1,65 @@
+# The Discord bot. It makes an outbound connection to Discord and serves an
+# HTTP port for OAuth callbacks; nothing routes to that port yet, because the
+# hostname that used to reach it went through a proxy container that is not
+# being brought back.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: discord-bot-uploads, namespace: discord }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 10Gi } }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: discord-bot-backups, namespace: discord }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 5Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: discord-bot, namespace: discord }
+spec:
+  selector: { app.kubernetes.io/name: discord-bot }
+  ports: [{ name: http, port: 8070, targetPort: 8070 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: discord-bot, namespace: discord }
+spec:
+  replicas: 1
+  # A bot holding a Discord gateway session, and volumes it writes to. Two of
+  # them would fight over both.
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app.kubernetes.io/name: discord-bot } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: discord-bot } }
+    spec:
+      containers:
+        - name: bot
+          # A local build with no registry behind it: imported from the
+          # machine's backup, never pulled.
+          image: discord-bot-app:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            # It reached MariaDB on loopback when both were on the host.
+            - { name: DB_HOST, value: mariadb }
+            - { name: DB_PORT, value: "3306" }
+            - { name: TZ, value: Asia/Seoul }
+            - { name: PORT, value: "8070" }
+          envFrom:
+            - secretRef: { name: discord-bot-env }
+          ports: [{ name: http, containerPort: 8070 }]
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 1Gi }
+          volumeMounts:
+            - { name: uploads, mountPath: /app/uploads }
+            - { name: backups, mountPath: /app/backups }
+            - { name: logs, mountPath: /app/logs }
+      volumes:
+        - { name: uploads, persistentVolumeClaim: { claimName: discord-bot-uploads } }
+        - { name: backups, persistentVolumeClaim: { claimName: discord-bot-backups } }
+        # Logs are not worth a volume: they go to the pod's log either way.
+        - { name: logs, emptyDir: { sizeLimit: 512Mi } }

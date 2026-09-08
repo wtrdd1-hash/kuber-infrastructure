@@ -1,0 +1,48 @@
+# MariaDB, which ran on the host rather than in a container before. The bot
+# reached it at 127.0.0.1:3306; it reaches it by Service name now.
+---
+apiVersion: v1
+kind: Namespace
+metadata: { name: discord }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: mariadb, namespace: discord }
+spec:
+  clusterIP: None
+  selector: { app.kubernetes.io/name: mariadb }
+  ports: [{ name: mysql, port: 3306, targetPort: 3306 }]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: { name: mariadb, namespace: discord }
+spec:
+  serviceName: mariadb
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: mariadb } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: mariadb } }
+    spec:
+      securityContext: { fsGroup: 999 }
+      containers:
+        - name: mariadb
+          # The version the machine was running, rather than a moving tag.
+          image: mariadb:11.8
+          env:
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom: { secretKeyRef: { name: mariadb-root, key: MARIADB_ROOT_PASSWORD } }
+            - { name: MARIADB_AUTO_UPGRADE, value: "1" }
+          ports: [{ name: mysql, containerPort: 3306 }]
+          readinessProbe:
+            exec: { command: ["sh", "-c", "mariadb-admin ping -h 127.0.0.1 -u root -p\"$MARIADB_ROOT_PASSWORD\""] }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 1Gi }
+          volumeMounts: [{ name: data, mountPath: /var/lib/mysql }]
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources: { requests: { storage: 10Gi } }
