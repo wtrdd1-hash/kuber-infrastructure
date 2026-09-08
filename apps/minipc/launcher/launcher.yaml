@@ -1,0 +1,63 @@
+# The game launcher's downloads: 26 files, about 1.1 GB of them. Static, so
+# nginx over a volume, and the volume is restored from the backup rather than
+# rebuilt -- these are release artefacts, not something a build produces again.
+---
+apiVersion: v1
+kind: Namespace
+metadata: { name: launcher }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: launcher-web, namespace: launcher }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 8Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: launcher-web, namespace: launcher }
+spec:
+  selector: { app.kubernetes.io/name: launcher-web }
+  ports: [{ name: http, port: 80, targetPort: 80 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: launcher-web, namespace: launcher }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app.kubernetes.io/name: launcher-web } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: launcher-web } }
+    spec:
+      containers:
+        - name: nginx
+          # Pinned. The container ran nginx:alpine, which is whatever alpine
+          # nginx happened to be that day.
+          image: nginx:1.29-alpine
+          ports: [{ name: http, containerPort: 80 }]
+          readinessProbe:
+            httpGet: { path: /, port: 80 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 20m, memory: 32Mi }
+            limits: { memory: 256Mi }
+          volumeMounts:
+            - { name: content, mountPath: /usr/share/nginx/html, readOnly: true }
+      volumes:
+        - name: content
+          persistentVolumeClaim: { claimName: launcher-web }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: { name: launcher-web, namespace: launcher }
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: launcher.easy-scraping.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: launcher-web, port: { number: 80 } } }

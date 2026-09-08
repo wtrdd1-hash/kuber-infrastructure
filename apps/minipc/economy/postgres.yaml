@@ -1,0 +1,50 @@
+---
+apiVersion: v1
+kind: Service
+metadata: { name: economy-db, namespace: economy }
+spec:
+  clusterIP: None
+  selector: { app.kubernetes.io/name: economy-db }
+  ports: [{ name: postgres, port: 5432, targetPort: 5432 }]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: { name: economy-db, namespace: economy }
+spec:
+  serviceName: economy-db
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: economy-db } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: economy-db } }
+    spec:
+      securityContext: { fsGroup: 999 }
+      containers:
+        - name: postgres
+          # The image this ran on had been deleted from the machine's store
+          # while the container kept running; this is the copy `docker commit`
+          # took before the machine was rebuilt. It exists nowhere else, so it
+          # is never pulled.
+          image: rescued/economy-db-1:20260907
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: POSTGRES_DB, value: economy }
+            - { name: POSTGRES_USER, value: postgres }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: economy-db-superuser, key: POSTGRES_PASSWORD } }
+            - name: ECONOMY_MANAGER_PASSWORD
+              valueFrom: { secretKeyRef: { name: economy-db-superuser, key: ECONOMY_MANAGER_PASSWORD } }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          ports: [{ name: postgres, containerPort: 5432 }]
+          readinessProbe:
+            exec: { command: ["sh", "-c", "pg_isready -U postgres"] }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 1Gi }
+          volumeMounts: [{ name: data, mountPath: /var/lib/postgresql/data }]
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources: { requests: { storage: 10Gi } }

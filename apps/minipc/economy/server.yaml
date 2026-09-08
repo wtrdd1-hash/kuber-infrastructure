@@ -1,0 +1,65 @@
+---
+apiVersion: v1
+kind: Service
+metadata: { name: economy-server, namespace: economy }
+spec:
+  selector: { app.kubernetes.io/name: economy-server }
+  ports: [{ name: http, port: 8080, targetPort: 8080 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: economy-server, namespace: economy }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app.kubernetes.io/name: economy-server } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: economy-server } }
+    spec:
+      containers:
+        - name: server
+          # Also rescued: the image was gone from the store before the rebuild.
+          image: rescued/economy-server-1:20260907
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: ASPNETCORE_ENVIRONMENT, value: Production }
+            - { name: ASPNETCORE_URLS, value: "http://+:8080" }
+            - { name: ASPNETCORE_HTTP_PORTS, value: "8080" }
+            - { name: Database__MigrateOnStartup, value: "true" }
+            - { name: DataProtection__KeyDirectory, value: /app/data-protection-keys }
+            - { name: Authentication__OAuth__Authority, value: "https://accounts.google.com" }
+            - { name: Authentication__OAuth__RedirectUri, value: "https://economy.easy-scraping.com/signin-oidc" }
+          envFrom:
+            - secretRef: { name: economy-app }
+          ports: [{ name: http, containerPort: 8080 }]
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 1Gi }
+          volumeMounts:
+            # ASP.NET Data Protection keys. Losing these logs everybody out
+            # and invalidates anything encrypted with them, so they are a
+            # volume rather than a directory in the container.
+            - { name: dpkeys, mountPath: /app/data-protection-keys }
+      volumes:
+        - name: dpkeys
+          persistentVolumeClaim: { claimName: economy-dpkeys }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: economy-dpkeys, namespace: economy }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 128Mi } }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: { name: economy, namespace: economy }
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: economy.easy-scraping.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: economy-server, port: { number: 8080 } } }

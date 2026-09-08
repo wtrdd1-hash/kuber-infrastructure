@@ -5,3 +5,5 @@ kind: Kustomization
 resources:
   - wdmvp
   - mail
+  - economy
+  - launcher
