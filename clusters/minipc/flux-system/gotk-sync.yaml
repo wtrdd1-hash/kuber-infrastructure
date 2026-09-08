@@ -8,7 +8,7 @@ spec:
   interval: 1m0s
   ref:
     branch: main
-  url: https://github.com/ridanit-ruma/kuber-fluxcd
+  url: https://github.com/wtrdd1-hash/kuber-infrastructure
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
