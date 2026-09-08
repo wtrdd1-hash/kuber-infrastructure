@@ -97,6 +97,10 @@ spec:
               value: "1000"
             - name: STATUS_COLLECT_INTERVAL_MS
               value: "30000"
+            # The backend collector defaults to the retired Compose DNS name
+            # `frontend`; Kubernetes uses the Service name below.
+            - name: WEB_HEALTH_URL
+              value: http://wdmvp-frontend:3000/
             - name: ADMIN_TOTP_KEY_ID
               value: default
           envFrom:
