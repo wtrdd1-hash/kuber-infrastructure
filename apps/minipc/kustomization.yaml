@@ -9,3 +9,5 @@ resources:
   - economy
   - launcher
   - discord
+
+  - gpt-plugin/

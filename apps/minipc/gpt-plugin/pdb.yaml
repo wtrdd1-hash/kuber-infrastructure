@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gpt-plugin-server
+  namespace: gpt-plugin
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: gpt-plugin

@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: desktop-commander-agent
+  namespace: gpt-plugin
+  labels:
+    app.kubernetes.io/name: desktop-commander-agent
+    app.kubernetes.io/part-of: minipc-mcp
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: desktop-commander-agent
+  template:
+    metadata:
+      labels:
+        app: desktop-commander-agent
+        app.kubernetes.io/name: desktop-commander-agent
+        app.kubernetes.io/part-of: minipc-mcp
+    spec:
+      hostPID: true
+      hostNetwork: true
+      nodeName: minipc
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: agent
+          image: python:3.11-slim
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+            capabilities:
+              add: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "=== Starting Desktop Commander Persistent Agent ==="
+              exec nsenter -t 1 -m -u -i -n -p -- /run/current-system/sw/bin/bash -c \
+                "export HOME=/root PATH=/run/current-system/sw/bin:/run/wrappers/bin:/nix/var/nix/profiles/default/bin:/usr/bin:/bin; exec npx -y @wonderwhy-er/desktop-commander@0.2.48 remote"
+          volumeMounts:
+            - mountPath: /host
+              name: host-root
+      volumes:
+        - name: host-root
+          hostPath:
+            path: /
+            type: Directory

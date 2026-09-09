@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gpt-plugin-server
+  namespace: gpt-plugin
+  labels:
+    app.kubernetes.io/name: gpt-plugin-server
+    app.kubernetes.io/part-of: minipc-mcp
+spec:
+  replicas: 1
+  minReadySeconds: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: gpt-plugin
+  template:
+    metadata:
+      labels:
+        app: gpt-plugin
+        app.kubernetes.io/name: gpt-plugin-server
+        app.kubernetes.io/part-of: minipc-mcp
+    spec:
+      hostPID: true
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: api
+          image: python:3.13-slim
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+            capabilities:
+              add: ["ALL"]
+          workingDir: /workspace
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              pip install --no-cache-dir fastapi uvicorn psutil pydantic 'mcp<2' sse-starlette httpx
+              exec python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+          ports:
+            - name: http
+              containerPort: 8000
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "4"
+              memory: 4Gi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            failureThreshold: 3
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: project-dir
+              mountPath: /workspace/app
+            - name: host-root
+              mountPath: /host
+              readOnly: false
+      volumes:
+        - name: project-dir
+          hostPath:
+            path: /home/wtrdd/projects/minipc-gpt-plugin/app
+            type: Directory
+        - name: host-root
+          hostPath:
+            path: /
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gpt-plugin-backend
+  namespace: gpt-plugin
+spec:
+  selector:
+    app: gpt-plugin
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
