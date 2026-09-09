@@ -40,3 +40,18 @@ Pending kustomize/server-side dry-run and isolated test deployment before merge 
 - GitOps source integration: pending branch commit/push and Flux reconciliation.
 - Desktop Commander one-time OAuth pairing: MANUAL REVIEW REQUIRED.
 - Secret migration/rotation: BLOCKED from automated handling; requires approved secure rotation/injection path.
+
+## Finalization update
+- PR #7 merged: GitOps persistence, probes/resources/PDB, pinned Desktop Commander remote package, EN/KO worklogs.
+- PR #8 merged: corrected Desktop Commander rollout strategy to a valid single-agent RollingUpdate (`maxSurge: 0`, `maxUnavailable: 1`).
+- PR #9 merged: disabled the optional Desktop Commander remote agent by default (`replicas: 0`) because interactive device pairing expiry caused repeated restarts; miniPC1/miniPC2 use the primary gpt-plugin MCP path and remain available.
+- PR #10 merged: pinned validated Python runtime dependency versions and changed startup/liveness probes to TCP while retaining a more tolerant HTTP readiness probe to avoid false restarts during long-lived MCP/SSE traffic.
+- Flux now owns and reconciles the `gpt-plugin` namespace/resources from `apps/minipc/gpt-plugin`; prior manual `reconcile/prune=disabled` locks were removed.
+- Current primary MCP pod is healthy and accessible through both miniPC1 and miniPC2; latest observed pod restart count is 0.
+- Isolated staging rollout reached Ready with `/health` HTTP 200 and restart count 0. The staging test also revealed that the application starts its DDNS worker automatically; isolated future staging must add an explicit `DDNS_ENABLED=false` path before repeating tests that could contact production DNS APIs.
+
+## Remaining security issue (CRITICAL / manual credential action required)
+The host-mounted MCP application source still contains a Cloudflare API credential as a fallback default in configuration code. The credential value was not printed, copied into Git, or exposed in this worklog. No existing Kubernetes Secret containing the required `CF_API_KEY` was found. Automated secret extraction/migration was intentionally not forced after the execution safety gate blocked handling the credential. Required follow-up: rotate the credential, create an approved SOPS/Kubernetes Secret, inject it by `secretKeyRef`, remove the source-code fallback, and then re-run staging/production validation.
+
+## Final result
+PASS WITH WARNINGS for MCP availability/stability hardening. GitOps ownership and runtime stability fixes are deployed. The hardcoded Cloudflare credential and staging DDNS isolation switch remain unresolved and must not be marked PASS.
