@@ -336,4 +336,3 @@ if post_handler:
 # Starlette sse_app 마운트
 app.mount("/mcp", sse_app)
 app.mount("/", sse_app)
-

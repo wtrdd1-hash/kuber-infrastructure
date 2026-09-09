@@ -1,4 +1,4 @@
-﻿"""
+"""
 Host Root Execution & Remote Control Service.
 Enters NixOS host PID 1 root namespace using nsenter.
 Full root privileges for shell commands, filesystem, systemctl, and kubectl.
