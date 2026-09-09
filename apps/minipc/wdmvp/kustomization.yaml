@@ -4,6 +4,7 @@ resources:
   - namespace.yaml
   - photos.yaml
   - postgres.yaml
+  - backup-cronjob.yaml
   - backend.yaml
   - frontend.yaml
   - ingress.yaml

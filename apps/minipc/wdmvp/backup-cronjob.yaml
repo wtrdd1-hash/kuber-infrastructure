@@ -1,0 +1,85 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: wdmvp-db-backup
+  namespace: wdmvp
+spec:
+  schedule: "17 * * * *"
+  timeZone: Asia/Seoul
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  startingDeadlineSeconds: 900
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 900
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: wdmvp-db-backup
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: backup
+              image: postgres:17.11-alpine
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: wdmvp-db-superuser
+                      key: POSTGRES_PASSWORD
+              command: ["/bin/sh", "-ec"]
+              args:
+                - |
+                  umask 077
+                  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+                  base="/backup/wdmvp-moneyverse_production-${stamp}"
+                  partial="${base}.dump.partial"
+                  final="${base}.dump"
+                  trap 'rm -f "$partial"' EXIT
+                  pg_dump -h wdmvp-db -U moneyverse_migrator \
+                    -d moneyverse_production --no-owner --no-privileges \
+                    -Fc -Z 9 -f "$partial"
+                  pg_restore -l "$partial" >/dev/null
+                  sha256sum "$partial" > "${partial}.sha256"
+                  mv "$partial" "$final"
+                  mv "${partial}.sha256" "${final}.sha256"
+                  trap - EXIT
+                  find /backup -maxdepth 1 -type f \
+                    -name 'wdmvp-moneyverse_production-*.dump' -mtime +14 -delete
+                  find /backup -maxdepth 1 -type f \
+                    -name 'wdmvp-moneyverse_production-*.dump.sha256' -mtime +14 -delete
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: backup
+              hostPath:
+                path: /home/wtrdd/moneyverse-backups/k8s
+                type: DirectoryOrCreate
+            - name: tmp
+              emptyDir:
+                sizeLimit: 64Mi
