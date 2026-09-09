@@ -29,3 +29,18 @@ MiniPC MCP 제어 계층을 Flux 소스 오브 트루스에 영속화하고, 호
 - 현재 Git 밖의 MCP 로컬 소스에 Cloudflare 자격증명 fallback이 존재한다. 평문을 Git에 옮기지 않았으며 자동 Secret 추출/이관은 안전 검사에서 차단되어 강행하지 않았다.
 - 해당 자격증명은 회전 후 SOPS/Kubernetes Secret으로 주입하고 코드 fallback을 제거해야 한다.
 - Desktop Commander 원격 기능은 1회 OAuth device pairing이 완료되어야 v0.2.48의 영속 세션 재사용을 검증할 수 있다.
+
+## 최종 반영 업데이트
+- PR #7 병합: MCP GitOps 영속화, 프로브/리소스/PDB, Desktop Commander 버전 고정, 영문/한글 작업기록 추가.
+- PR #8 병합: Desktop Commander 배포 전략을 유효한 단일 에이전트 RollingUpdate(`maxSurge: 0`, `maxUnavailable: 1`)로 수정.
+- PR #9 병합: 대화형 기기 인증 만료 때문에 반복 재시작하던 선택적 Desktop Commander 원격 에이전트를 기본 비활성화(`replicas: 0`). miniPC1/miniPC2는 핵심 gpt-plugin MCP 경로를 사용하므로 계속 사용 가능.
+- PR #10 병합: 검증된 Python 런타임 의존성 버전 고정, 장시간 MCP/SSE 트래픽에서 오탐 재시작을 줄이기 위해 startup/liveness는 TCP, readiness는 여유 있는 HTTP 프로브로 조정.
+- Flux가 `apps/minipc/gpt-plugin`의 네임스페이스/리소스를 실제로 소유·동기화하도록 전환했고, 과거 수동 `reconcile/prune=disabled` 잠금을 제거함.
+- 현재 핵심 MCP Pod는 miniPC1/miniPC2 양쪽에서 접근 가능하며 최근 확인 재시작 횟수는 0회.
+- 격리 staging에서 Ready, `/health` HTTP 200, 재시작 0회를 확인함. 단 staging에서도 DDNS worker가 자동 시작되는 사실을 발견했으므로 향후 격리 테스트 전 `DDNS_ENABLED=false` 같은 명시적 비활성 경로가 필요함.
+
+## 남은 보안 문제 (CRITICAL / 수동 자격증명 조치 필요)
+호스트에 마운트된 MCP 애플리케이션 설정 코드에 Cloudflare API 자격증명이 fallback 기본값으로 남아 있음. 해당 값은 출력·Git 기록·작업기록에 노출하지 않았으며, 현재 클러스터에는 재사용 가능한 `CF_API_KEY` Kubernetes Secret이 없음. 실행 안전 게이트가 자격증명 자동 추출/이관을 차단한 뒤 이를 우회하지 않았음. 필수 후속조치: 자격증명 회전 → 승인된 SOPS/Kubernetes Secret 생성 → `secretKeyRef` 주입 → 소스 fallback 제거 → staging/운영 재검증.
+
+## 최종 결과
+MCP 가용성/안정성 강화는 PASS WITH WARNINGS. GitOps 영속화와 런타임 안정화는 운영 반영 완료. Cloudflare 하드코딩 자격증명과 staging DDNS 격리 스위치는 미해결이며 PASS로 기록하지 않음.
