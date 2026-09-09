@@ -4,9 +4,19 @@
 # which is also how you take one down without deleting it.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+# Deliberately absent: wdmv-test.
+#
+# A second full copy of the application -- frontend, backend, PostgreSQL, its
+# own secrets -- on a single node that is already running six services. It was
+# removed on 2026-09-09, restored, and removed again; when it came back it
+# changed an immutable Deployment selector and took the whole apps Kustomization
+# down with it, so nothing else could reconcile either.
+#
+# If a rehearsal environment is wanted, it needs a decision and somewhere to
+# put it, not a directory that reappears. Until then this cluster has one stack
+# and docs/INFRASTRUCTURE.md in the application repository says so.
 resources:
   - wdmvp
-  - wdmv-test
   - mail
   - economy
   - launcher
