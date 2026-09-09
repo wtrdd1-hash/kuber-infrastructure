@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wdmv-test
+  namespace: wdmv-test
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: test.easy-scraping.com
+      http:
+        paths:
+          - path: /socket.io/
+            pathType: Prefix
+            backend:
+              service:
+                name: wdmv-test-backend
+                port: { number: 3000 }
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wdmv-test-frontend
+                port: { number: 3000 }
