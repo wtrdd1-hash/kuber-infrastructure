@@ -61,3 +61,11 @@ PASS WITH WARNINGS for MCP availability/stability hardening. GitOps ownership an
 - The host-mounted MCP source was patched so background DDNS calls execute via `await asyncio.to_thread(...)`, preventing Cloudflare/public-IP HTTP I/O from blocking the FastAPI/MCP event loop.
 - Added a `DDNS_ENABLED` runtime switch to the host-mounted FastAPI lifespan; production explicitly sets `DDNS_ENABLED=true`. Isolated staging must set it to `false` before startup.
 - Source values/secrets were not copied into Git. Python syntax compilation passed for both patched files and rollback backups were created beside them.
+
+## DDNS full-A reconciliation hardening
+- DDNS now updates every Cloudflare A record whose content matches the previously cached public IPv4 address when the WAN address changes.
+- Existing record attributes such as proxied and TTL are preserved.
+- SPF TXT `ip4:<old-ip>` is updated to the new public IP.
+- If any A/SPF update fails, the cached public IP is not advanced so the next scheduled run retries the incomplete reconciliation.
+- Staging keeps DDNS disabled and a mocked regression test verified that matching A records and SPF are selected while unrelated A records are untouched.
+- Cloudflare credentials are no longer expected in versioned source; the runtime reads a root-owned host secret file mounted read-only.

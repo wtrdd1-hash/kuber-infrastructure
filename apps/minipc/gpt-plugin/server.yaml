@@ -26,6 +26,28 @@ spec:
     spec:
       hostPID: true
       terminationGracePeriodSeconds: 60
+      initContainers:
+        - name: materialize-source
+          image: python:3.13-slim
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              mkdir -p /app/core /app/services
+              cp /source/main.py /app/main.py
+              cp /source/root-init.py /app/__init__.py
+              cp /source/core-config.py /app/core/config.py
+              cp /source/services-init.py /app/services/__init__.py
+              cp /source/services-cloudflare_dns.py /app/services/cloudflare_dns.py
+              cp /source/services-ddns.py /app/services/ddns.py
+              cp /source/services-executor.py /app/services/executor.py
+              cp /source/services-k8s.py /app/services/k8s.py
+              cp /source/services-monitor.py /app/services/monitor.py
+          volumeMounts:
+            - name: source-config
+              mountPath: /source
+            - name: project-dir
+              mountPath: /app
       containers:
         - name: api
           image: python:3.13-slim
@@ -45,6 +67,14 @@ spec:
           env:
             - name: DDNS_ENABLED
               value: "true"
+            - name: DDNS_INTERVAL_SECONDS
+              value: "60"
+            - name: DDNS_DOMAINS
+              value: "ssh.easy-scraping.com,mini.easy-scraping.com,direct.easy-scraping.com,nas.easy-scraping.com"
+            - name: DDNS_UPDATE_SPF
+              value: "true"
+            - name: MCP_SECRET_ENV_FILE
+              value: "/run/secrets/cloudflare.env"
           ports:
             - name: http
               containerPort: 8000
@@ -77,14 +107,22 @@ spec:
           volumeMounts:
             - name: project-dir
               mountPath: /workspace/app
+            - name: cloudflare-env
+              mountPath: /run/secrets/cloudflare.env
+              readOnly: true
             - name: host-root
               mountPath: /host
               readOnly: false
       volumes:
-        - name: project-dir
+        - name: source-config
+          configMap:
+            name: gpt-plugin-source
+        - name: cloudflare-env
           hostPath:
-            path: /home/wtrdd/projects/minipc-gpt-plugin/app
-            type: Directory
+            path: /var/lib/gpt-plugin/cloudflare.env
+            type: File
+        - name: project-dir
+          emptyDir: {}
         - name: host-root
           hostPath:
             path: /
