@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mikevoice-tts
+  namespace: discord
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mikevoice-tts
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mikevoice-tts
+  namespace: discord
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mikevoice-tts
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mikevoice-tts
+    spec:
+      containers:
+        - name: tts
+          image: mikevoice-app:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mikevoice-api-key
+                  key: API_KEY
+            - { name: PORT, value: "3000" }
+            - { name: MAX_CONTENT_LENGTH, value: "300" }
+            - { name: MAX_QUEUE_LENGTH, value: "40" }
+            - { name: CACHE_TTL_MS, value: "600000" }
+            - { name: JOB_TTL_MS, value: "1800000" }
+            - { name: VOICE_TTS_STEPS, value: "8" }
+          ports:
+            - { name: http, containerPort: 3000 }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 4
+          resources:
+            requests: { cpu: 500m, memory: 1Gi }
+            limits: { cpu: "6", memory: 6Gi }
