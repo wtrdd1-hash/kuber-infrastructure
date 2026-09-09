@@ -1,0 +1,49 @@
+name: Validate GitOps
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install pinned Kustomize
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=5.8.1
+          archive="kustomize_v${version}_linux_amd64.tar.gz"
+          curl -fsSLO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/v${version}/${archive}"
+          echo "029a7f0f4e1932c52a0476cf02a0fd855c0bb85694b82c338fc648dcb53a819d  ${archive}" | sha256sum -c -
+          tar -xzf "$archive"
+          sudo install -m 0755 kustomize /usr/local/bin/kustomize
+          kustomize version
+      - name: Render all apps
+        shell: bash
+        run: |
+          set -euo pipefail
+          kustomize build apps > /tmp/apps.yaml
+          test -s /tmp/apps.yaml
+      - name: Verify Moneyverse test isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_root=apps/wdmv-test
+          test -d "$test_root"
+          grep -R -q 'test.easy-scraping.com' "$test_root"
+          grep -R -q 'wdmv-test-db' "$test_root"
+          grep -R -q '1e89200336e55e8c3d8c329a8f9a20310d0ea495-test' "$test_root"
+          if grep -R -E 'wdmvp-app|wdmvp-db-superuser|postgresql://[^@]*@wdmvp-db' "$test_root"; then
+            echo 'test stack must not reference production application/database credentials or database' >&2
+            exit 1
+          fi
+          ghcr_refs="$(grep -R -h 'resourceNames: \["ghcr-pull"\]' "$test_root" | wc -l | tr -d ' ')"
+          prod_namespace_refs="$(grep -h 'namespace: wdmvp' "$test_root/bootstrap-secrets.yaml" | wc -l | tr -d ' ')"
+          test "$ghcr_refs" -eq 1
+          test "$prod_namespace_refs" -eq 2
+          echo 'test stack is namespace/database isolated; only the scoped GHCR pull credential reader crosses namespaces'
