@@ -31,9 +31,15 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
+      imagePullSecrets:
+        # ghcr.io/wtrdd1-hash/wdmv/* is a private package. Without this the
+        # kubelet asks ghcr anonymously, is told 401, and the rollout stops at
+        # ImagePullBackOff while the previous pod keeps serving -- which looks
+        # like a healthy deployment until you read its Progressing condition.
+        - name: ghcr-pull
       containers:
         - name: frontend
-          image: ghcr.io/wtrdd1-hash/wdmv/frontend:0014863950d130c430005cfba7dd0f28a3cfd062-production
+          image: ghcr.io/wtrdd1-hash/wdmv/frontend:567dbaab0b4a609986c2cf343530ac1b81398c4f-production
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

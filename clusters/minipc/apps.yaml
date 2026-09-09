@@ -17,3 +17,9 @@ spec:
     name: flux-system
   path: ./apps/minipc
   prune: true
+  # wdmvp ships a registry credential as a sops file; without this the
+  # ciphertext is applied verbatim and the kubelet gets an unusable secret.
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age

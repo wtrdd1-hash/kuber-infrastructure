@@ -37,12 +37,17 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+      imagePullSecrets:
+        # ghcr.io/wtrdd1-hash/wdmv/* is a private package. Without this the
+        # kubelet asks ghcr anonymously, is told 401, and the rollout stops at
+        # ImagePullBackOff while the previous pod keeps serving -- which looks
+        # like a healthy deployment until you read its Progressing condition.
+        - name: ghcr-pull
       containers:
         - name: backend
-          # Not pullable: this is a private package of another account. It is
-          # in containerd because it was imported from the machine's backup,
-          # which is the only copy that exists here.
-          image: ghcr.io/wtrdd1-hash/wdmv/backend:ffcdc5b0d2878639639ca48747f09ed8532da4d7-production
+          # Immutable: the tag is the commit. IfNotPresent below therefore
+          # never serves a stale image, and it saves a pull on every restart.
+          image: ghcr.io/wtrdd1-hash/wdmv/backend:567dbaab0b4a609986c2cf343530ac1b81398c4f-production
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
