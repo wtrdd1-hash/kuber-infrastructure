@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 AUDIT_LOG_HOST = "/host/var/log/gpt-audit.log"
 AUDIT_LOG_LOCAL = "/var/log/gpt-audit.log"
+MAX_OUTPUT_BYTES = 32768
 
 NIXOS_ENV_PREFIX = (
     "export PATH=/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH; export KUBECONFIG=/etc/kubernetes/admin.conf:/home/wtrdd/.kube/config; "
@@ -41,7 +42,7 @@ def run_host_command(
     Executes a shell command directly in the host NixOS PID 1 root namespace.
     """
     start_time = time.time()
-    wrapped_command = f"{NIXOS_ENV_PREFIX}{command}"
+    wrapped_command = f"{NIXOS_ENV_PREFIX}({command}) 2>&1 | tail -c {MAX_OUTPUT_BYTES}; exit ${{PIPESTATUS[0]}}"
 
     nsenter_cmd = [
         "nsenter",
@@ -124,38 +125,31 @@ def read_host_file(filepath: str, max_lines: int = 500) -> Dict[str, Any]:
 
 
 def write_host_file(filepath: str, content: str, make_backup: bool = True) -> Dict[str, Any]:
-    """Writes content to a host file with root privileges, optionally creating a .bak backup."""
-    import tempfile
+    """Writes directly through the /host bind mount; avoids broken cross-namespace /tmp copies."""
+    import shutil
     try:
-        with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as tmp:
-            tmp.write(content)
-            tmp_path = tmp.name
-
-        backup_cmd = f"if [ -f {filepath!r} ]; then cp {filepath!r} {filepath!r}.bak; fi && " if make_backup else ""
-        move_cmd = f"{backup_cmd}cp /host{tmp_path} {filepath!r} && rm -f /host{tmp_path}"
-        res = run_host_command(move_cmd, timeout=15)
-
-        if os.path.exists(tmp_path):
-            try:
-                os.remove(tmp_path)
-            except Exception:
-                pass
-
-        if res.get("success"):
-            return {
-                "success": True,
-                "filepath": filepath,
-                "bytes_written": len(content.encode("utf-8")),
-                "backup_created": make_backup,
-            }
+        if not filepath.startswith('/'):
+            return {"success": False, "filepath": filepath, "error": "filepath must be absolute"}
+        host_path = '/host' + filepath
+        os.makedirs(os.path.dirname(host_path), exist_ok=True)
+        backup_created = False
+        if make_backup and os.path.isfile(host_path):
+            shutil.copy2(host_path, host_path + '.bak')
+            backup_created = True
+        tmp_path = host_path + f'.tmp.{os.getpid()}'
+        with open(tmp_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, host_path)
         return {
-            "success": False,
+            "success": True,
             "filepath": filepath,
-            "error": res.get("stderr") or res.get("error"),
+            "bytes_written": len(content.encode('utf-8')),
+            "backup_created": backup_created,
         }
     except Exception as e:
         return {"success": False, "filepath": filepath, "error": str(e)}
-
 
 def manage_system_service(service_name: str, action: str) -> Dict[str, Any]:
     """Manages systemd services (status, start, stop, restart, reload, is-active) on host."""

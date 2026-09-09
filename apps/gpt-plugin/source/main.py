@@ -35,28 +35,28 @@ mcp.settings.transport_security = TransportSecuritySettings(
 
 # --- MCP 모니터링 도구 ---
 @mcp.tool(name="get_system_overview", description="미니 PC 호스트명, OS(NixOS), 커널, 부팅 시각, 누적 업타임을 조회합니다.")
-def mcp_system_overview() -> str:
-    return json.dumps(get_system_overview(), ensure_ascii=False)
+async def mcp_system_overview() -> str:
+    return json.dumps(await asyncio.to_thread(get_system_overview), ensure_ascii=False)
 
 
 @mcp.tool(name="get_system_metrics", description="CPU 전체/코어별 사용률, RAM/Swap 점유율, 디스크 잔여량, 네트워크 I/O 통계를 조회합니다.")
-def mcp_system_metrics() -> str:
-    return json.dumps(get_system_metrics(), ensure_ascii=False)
+async def mcp_system_metrics() -> str:
+    return json.dumps(await asyncio.to_thread(get_system_metrics), ensure_ascii=False)
 
 
 @mcp.tool(name="get_top_processes", description="메모리 또는 CPU 점유율이 높은 상위 프로세스 목록을 조회합니다. limit(기본 10), sort_by('memory' 또는 'cpu')")
-def mcp_top_processes(limit: int = 10, sort_by: str = "memory") -> str:
-    return json.dumps(get_top_processes(limit=limit, sort_by=sort_by), ensure_ascii=False)
+async def mcp_top_processes(limit: int = 10, sort_by: str = "memory") -> str:
+    return json.dumps(await asyncio.to_thread(get_top_processes, limit=limit, sort_by=sort_by), ensure_ascii=False)
 
 
 @mcp.tool(name="get_system_logs", description="최근 systemd journalctl 또는 dmesg 시스템 로그를 조회합니다. lines(기본 30)")
-def mcp_system_logs(lines: int = 30) -> str:
-    return json.dumps({"logs": get_recent_logs(lines=lines)}, ensure_ascii=False)
+async def mcp_system_logs(lines: int = 30) -> str:
+    return json.dumps({"logs": await asyncio.to_thread(get_recent_logs, lines=lines)}, ensure_ascii=False)
 
 
 @mcp.tool(name="get_k8s_summary", description="미니 PC의 Kubernetes 클러스터 노드 및 파드 구동 상태를 요약 조회합니다.")
-def mcp_k8s_summary() -> str:
-    return json.dumps(get_k8s_summary(), ensure_ascii=False)
+async def mcp_k8s_summary() -> str:
+    return json.dumps(await asyncio.to_thread(get_k8s_summary), ensure_ascii=False)
 
 
 # --- MCP DNS 및 DDNS 관리 도구 ---
@@ -121,8 +121,8 @@ def mcp_trigger_ddns_sync(force: bool = False) -> str:
         "background: 백그라운드 비동기 실행 여부 (빌드/다운로드 등 긴 작업 시 True)"
     ),
 )
-def mcp_execute_command(command: str, timeout: int = 60, background: bool = False) -> str:
-    res = executor.run_host_command(command=command, timeout=timeout, background=background)
+async def mcp_execute_command(command: str, timeout: int = 60, background: bool = False) -> str:
+    res = await asyncio.to_thread(executor.run_host_command, command=command, timeout=timeout, background=background)
     return json.dumps(res, ensure_ascii=False)
 
 
@@ -130,8 +130,8 @@ def mcp_execute_command(command: str, timeout: int = 60, background: bool = Fals
     name="exec_command",
     description="미니 PC 호스트 NixOS에서 root 권한으로 임의의 bash 셸 명령어를 실행합니다. command: 실행할 명령어 (execute_command의 별칭)",
 )
-def mcp_exec_command(command: str, timeout: int = 60, background: bool = False) -> str:
-    res = executor.run_host_command(command=command, timeout=timeout, background=background)
+async def mcp_exec_command(command: str, timeout: int = 60, background: bool = False) -> str:
+    res = await asyncio.to_thread(executor.run_host_command, command=command, timeout=timeout, background=background)
     return json.dumps(res, ensure_ascii=False)
 
 
@@ -139,8 +139,8 @@ def mcp_exec_command(command: str, timeout: int = 60, background: bool = False) 
     name="shell",
     description="미니 PC 호스트 NixOS에서 root 권한으로 임의의 bash 셸 명령어를 실행합니다. command: 실행할 명령어 (execute_command의 별칭)",
 )
-def mcp_shell(command: str, timeout: int = 60, background: bool = False) -> str:
-    res = executor.run_host_command(command=command, timeout=timeout, background=background)
+async def mcp_shell(command: str, timeout: int = 60, background: bool = False) -> str:
+    res = await asyncio.to_thread(executor.run_host_command, command=command, timeout=timeout, background=background)
     return json.dumps(res, ensure_ascii=False)
 
 
@@ -149,8 +149,8 @@ def mcp_shell(command: str, timeout: int = 60, background: bool = False) -> str:
     name="read_file",
     description="미니 PC 호스트 시스템의 파일 내용을 root 권한으로 읽어옵니다. filepath: 호스트 절대경로, max_lines: 최대 읽을 라인 수(기본 500)",
 )
-def mcp_read_file(filepath: str, max_lines: int = 500) -> str:
-    res = executor.read_host_file(filepath=filepath, max_lines=max_lines)
+async def mcp_read_file(filepath: str, max_lines: int = 500) -> str:
+    res = await asyncio.to_thread(executor.read_host_file, filepath=filepath, max_lines=max_lines)
     return json.dumps(res, ensure_ascii=False)
 
 
@@ -158,8 +158,8 @@ def mcp_read_file(filepath: str, max_lines: int = 500) -> str:
     name="write_file",
     description="미니 PC 호스트 시스템에 파일을 root 권한으로 생성하거나 덮어씁니다. filepath: 호스트 절대경로, content: 파일 내용, make_backup: 기존 파일 자동 .bak 백업 여부(기본 True)",
 )
-def mcp_write_file(filepath: str, content: str, make_backup: bool = True) -> str:
-    res = executor.write_host_file(filepath=filepath, content=content, make_backup=make_backup)
+async def mcp_write_file(filepath: str, content: str, make_backup: bool = True) -> str:
+    res = await asyncio.to_thread(executor.write_host_file, filepath=filepath, content=content, make_backup=make_backup)
     return json.dumps(res, ensure_ascii=False)
 
 
@@ -167,8 +167,8 @@ def mcp_write_file(filepath: str, content: str, make_backup: bool = True) -> str
     name="manage_service",
     description="미니 PC 호스트의 systemd 서비스를 root 권한으로 제어합니다. service_name: 서비스 이름(예: 'sshd', 'caddy', 'k3s'), action: 'status' | 'start' | 'stop' | 'restart' | 'reload' | 'is-active'",
 )
-def mcp_manage_service(service_name: str, action: str) -> str:
-    res = executor.manage_system_service(service_name=service_name, action=action)
+async def mcp_manage_service(service_name: str, action: str) -> str:
+    res = await asyncio.to_thread(executor.manage_system_service, service_name=service_name, action=action)
     return json.dumps(res, ensure_ascii=False)
 
 
@@ -176,8 +176,8 @@ def mcp_manage_service(service_name: str, action: str) -> str:
     name="manage_k8s",
     description="미니 PC 호스트 클러스터에서 kubectl 명령어를 root 권한으로 실행합니다. command: kubectl 하위 인자(예: 'get pods -A', 'logs -n gpt-plugin <pod>', 'apply -f <file>')",
 )
-def mcp_manage_k8s(command: str) -> str:
-    res = executor.manage_k8s(command=command)
+async def mcp_manage_k8s(command: str) -> str:
+    res = await asyncio.to_thread(executor.manage_k8s, command=command)
     return json.dumps(res, ensure_ascii=False)
 
 

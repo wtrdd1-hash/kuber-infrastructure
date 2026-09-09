@@ -66,7 +66,7 @@ spec:
               exec python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
           env:
             - name: DDNS_ENABLED
-              value: "true"
+              value: "false"
             - name: DDNS_INTERVAL_SECONDS
               value: "60"
             - name: DDNS_DOMAINS
@@ -95,15 +95,15 @@ spec:
             httpGet:
               path: /health
               port: http
-            periodSeconds: 10
-            failureThreshold: 6
-            timeoutSeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+            timeoutSeconds: 2
           livenessProbe:
             tcpSocket:
               port: http
-            periodSeconds: 30
+            periodSeconds: 20
             failureThreshold: 6
-            timeoutSeconds: 3
+            timeoutSeconds: 2
           volumeMounts:
             - name: project-dir
               mountPath: /workspace/app
@@ -122,7 +122,7 @@ spec:
         - name: cloudflare-env
           hostPath:
             path: /var/lib/gpt-plugin/cloudflare.env
-            type: File
+            type: FileOrCreate
         - name: project-dir
           emptyDir: {}
         - name: data-dir
