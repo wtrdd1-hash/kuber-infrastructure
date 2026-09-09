@@ -16,6 +16,7 @@ kind: Kustomization
 # put it, not a directory that reappears. Until then this cluster has one stack
 # and docs/INFRASTRUCTURE.md in the application repository says so.
 resources:
+  - gpt-plugin
   - wdmvp
   - mail
   - economy
