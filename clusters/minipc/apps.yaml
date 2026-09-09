@@ -15,7 +15,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: flux-system
-  path: ./apps/minipc
+  path: ./apps
   prune: true
   # wdmvp ships a registry credential as a sops file; without this the
   # ciphertext is applied verbatim and the kubelet gets an unusable secret.
