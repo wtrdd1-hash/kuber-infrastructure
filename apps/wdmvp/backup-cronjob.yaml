@@ -61,10 +61,20 @@ spec:
                     sha256sum "$(basename "$final")" > "$(basename "$final").sha256"
                   )
                   trap - EXIT
+                  # Keep the five most recent dumps, not a window of days. The
+                  # stamp is %Y%m%dT%H%M%SZ, so a reverse lexicographic sort is
+                  # newest-first and needs no mtime and no `ls -t` parsing. The
+                  # checksum goes with its dump; an orphan of either is a file
+                  # nobody can verify.
+                  cd /backup
+                  ls -1 wdmvp-moneyverse_production-*.dump 2>/dev/null \
+                    | sort -r | tail -n +6 \
+                    | while IFS= read -r old; do rm -f -- "$old" "$old.sha256"; done
+                  # A dump interrupted by something the EXIT trap does not see --
+                  # OOM kill, node reboot -- leaves a .partial that no rule above
+                  # matches, so it would sit there forever.
                   find /backup -maxdepth 1 -type f \
-                    -name 'wdmvp-moneyverse_production-*.dump' -mtime +14 -delete
-                  find /backup -maxdepth 1 -type f \
-                    -name 'wdmvp-moneyverse_production-*.dump.sha256' -mtime +14 -delete
+                    -name 'wdmvp-moneyverse_production-*.dump.partial' -mmin +120 -delete
               resources:
                 requests:
                   cpu: 50m
