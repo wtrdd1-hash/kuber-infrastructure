@@ -40,7 +40,7 @@ spec:
             - -c
             - |
               set -e
-              pip install --no-cache-dir fastapi uvicorn psutil pydantic 'mcp<2' sse-starlette httpx
+              pip install --no-cache-dir --retries 5 --timeout 30 fastapi==0.141.1 uvicorn==0.52.4 psutil==7.2.2 pydantic==2.13.5 mcp==1.30.0 sse-starlette==3.4.11 httpx==0.28.1
               exec python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
           ports:
             - name: http
@@ -53,8 +53,7 @@ spec:
               cpu: "4"
               memory: 4Gi
           startupProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: http
             periodSeconds: 5
             failureThreshold: 60
@@ -64,14 +63,13 @@ spec:
               path: /health
               port: http
             periodSeconds: 10
-            failureThreshold: 3
-            timeoutSeconds: 3
+            failureThreshold: 6
+            timeoutSeconds: 10
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: http
             periodSeconds: 30
-            failureThreshold: 3
+            failureThreshold: 6
             timeoutSeconds: 3
           volumeMounts:
             - name: project-dir
