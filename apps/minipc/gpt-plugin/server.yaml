@@ -42,6 +42,9 @@ spec:
               set -e
               pip install --no-cache-dir --retries 5 --timeout 30 fastapi==0.141.1 uvicorn==0.52.4 psutil==7.2.2 pydantic==2.13.5 mcp==1.30.0 sse-starlette==3.4.11 httpx==0.28.1
               exec python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+          env:
+            - name: DDNS_ENABLED
+              value: "true"
           ports:
             - name: http
               containerPort: 8000

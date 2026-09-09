@@ -44,3 +44,9 @@ MiniPC MCP 제어 계층을 Flux 소스 오브 트루스에 영속화하고, 호
 
 ## 최종 결과
 MCP 가용성/안정성 강화는 PASS WITH WARNINGS. GitOps 영속화와 런타임 안정화는 운영 반영 완료. Cloudflare 하드코딩 자격증명과 staging DDNS 격리 스위치는 미해결이며 PASS로 기록하지 않음.
+
+## DDNS 이벤트 루프 격리 후속조치
+- 간헐적 readiness timeout의 원인을 60초마다 async DDNS 루프 내부에서 동기식 `sync_ddns()`를 직접 실행해 FastAPI/MCP 이벤트 루프를 막는 구조로 확인함.
+- 호스트 마운트 MCP 소스를 수정해 백그라운드 DDNS 호출을 `await asyncio.to_thread(...)`로 실행하도록 변경하여 Cloudflare/공인 IP HTTP I/O가 MCP 이벤트 루프를 차단하지 않도록 함.
+- FastAPI lifespan에 `DDNS_ENABLED` 런타임 스위치를 추가했고 운영은 `DDNS_ENABLED=true`를 명시. 향후 격리 staging에서는 시작 전 반드시 `false`로 설정해야 함.
+- Secret 값은 Git으로 복사하지 않았으며 수정된 두 Python 파일 모두 문법 컴파일 검증 PASS. 롤백용 백업 파일도 호스트에 생성함.
