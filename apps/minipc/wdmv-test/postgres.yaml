@@ -43,6 +43,12 @@ spec:
               value: moneyverse_test
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
+          # Test-only generated credentials are injected here so the checked-out
+          # migration/seed scripts can initialize least-privilege roles without
+          # placing any credential in Git or command-line arguments.
+          envFrom:
+            - secretRef:
+                name: wdmv-test-app
           ports:
             - name: postgres
               containerPort: 5432
