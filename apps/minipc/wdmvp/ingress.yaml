@@ -46,5 +46,3 @@ spec:
                 port: { number: 3000 }
     - host: www.easy-scraping.com
       http: *wdmvpPaths
-    - host: test.easy-scraping.com
-      http: *wdmvpPaths
