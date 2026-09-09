@@ -107,6 +107,8 @@ spec:
           volumeMounts:
             - name: project-dir
               mountPath: /workspace/app
+            - name: data-dir
+              mountPath: /workspace/data
             - name: cloudflare-env
               mountPath: /run/secrets/cloudflare.env
               readOnly: true
@@ -123,6 +125,10 @@ spec:
             type: File
         - name: project-dir
           emptyDir: {}
+        - name: data-dir
+          hostPath:
+            path: /var/lib/gpt-plugin/data
+            type: DirectoryOrCreate
         - name: host-root
           hostPath:
             path: /
