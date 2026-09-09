@@ -55,9 +55,11 @@ spec:
                     -d moneyverse_production --no-owner --no-privileges \
                     -Fc -Z 9 -f "$partial"
                   pg_restore -l "$partial" >/dev/null
-                  sha256sum "$partial" > "${partial}.sha256"
                   mv "$partial" "$final"
-                  mv "${partial}.sha256" "${final}.sha256"
+                  (
+                    cd /backup
+                    sha256sum "$(basename "$final")" > "$(basename "$final").sha256"
+                  )
                   trap - EXIT
                   find /backup -maxdepth 1 -type f \
                     -name 'wdmvp-moneyverse_production-*.dump' -mtime +14 -delete
