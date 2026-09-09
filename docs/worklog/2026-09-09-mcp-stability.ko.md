@@ -58,3 +58,12 @@ MCP 가용성/안정성 강화는 PASS WITH WARNINGS. GitOps 영속화와 런타
 - A/SPF 갱신 중 하나라도 실패하면 공인 IP 캐시를 전진시키지 않아 다음 주기에 자동 재시도합니다.
 - staging에서는 DDNS를 비활성화하고 모의 회귀 테스트로 대상 A/SPF만 선택되고 관계없는 A 레코드는 변경하지 않는 것을 검증했습니다.
 - Cloudflare 자격증명은 버전 관리 소스에 포함하지 않고 root 소유 read-only 비밀파일을 런타임에 마운트하도록 정리했습니다.
+
+## DDNS 운영 최종 검증
+- PR #13에서 이전 공인 IP를 가리키는 모든 A 레코드 자동 갱신, SPF 갱신, 실패 재시도, MCP 소스 GitOps 패키징, root 소유 read-only Cloudflare 런타임 비밀파일 사용을 반영했습니다.
+- PR #14에서 생성된 source ConfigMap의 namespace 누락을 수정해 Flux reconcile 실패를 해결했습니다.
+- PR #15에서 `/workspace/data`를 `/var/lib/gpt-plugin/data`에 영구 마운트해 `last_public_ip.txt`가 Pod 교체/호스트 재부팅 후에도 유지되도록 했습니다.
+- Flux가 main `f06f5050fc4176f6f0e4f57ca275f1fb82f72fc0`를 정상 적용했습니다.
+- 운영 MCP Pod는 rollout 후 Ready, restart 0을 확인했습니다.
+- DDNS 상태는 `all_A_records_matching_previous_public_ip`, SPF 자동 갱신 true, 60초 주기, 현재/캐시 IP 일치, 오류 없음으로 확인했습니다.
+- 운영 no-force 동기화에서도 현재 공인 IP가 동일하여 변경 없이 정상 완료됐습니다.
