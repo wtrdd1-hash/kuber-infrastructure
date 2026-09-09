@@ -69,3 +69,12 @@ PASS WITH WARNINGS for MCP availability/stability hardening. GitOps ownership an
 - If any A/SPF update fails, the cached public IP is not advanced so the next scheduled run retries the incomplete reconciliation.
 - Staging keeps DDNS disabled and a mocked regression test verified that matching A records and SPF are selected while unrelated A records are untouched.
 - Cloudflare credentials are no longer expected in versioned source; the runtime reads a root-owned host secret file mounted read-only.
+
+## Final DDNS production validation
+- PR #13 merged the all-A reconciliation, SPF update, retry semantics, GitOps-packaged MCP source, and root-owned read-only Cloudflare runtime secret file.
+- PR #14 fixed the generated source ConfigMap namespace so Flux could reconcile the new source package.
+- PR #15 persisted `/workspace/data` on `/var/lib/gpt-plugin/data` so `last_public_ip.txt` survives pod rolls and host reboots.
+- Flux applied main `f06f5050fc4176f6f0e4f57ca275f1fb82f72fc0` successfully.
+- Production MCP pod was Ready with 0 restarts after rollout.
+- DDNS status reported `mode=all_A_records_matching_previous_public_ip`, `spf_update=true`, 60-second checks, cached/current IP aligned, and no error.
+- A no-force production sync returned no change because the current public IP already matched the cached IP.
