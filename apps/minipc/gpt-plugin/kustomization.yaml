@@ -6,3 +6,16 @@ resources:
   - ingress.yaml
   - desktop-commander.yaml
   - pdb.yaml
+
+configMapGenerator:
+  - name: gpt-plugin-source
+    files:
+      - main.py=source/main.py
+      - root-init.py=source/__init__.py
+      - core-config.py=source/core/config.py
+      - services-init.py=source/services/__init__.py
+      - services-cloudflare_dns.py=source/services/cloudflare_dns.py
+      - services-ddns.py=source/services/ddns.py
+      - services-executor.py=source/services/executor.py
+      - services-k8s.py=source/services/k8s.py
+      - services-monitor.py=source/services/monitor.py

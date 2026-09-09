@@ -50,3 +50,11 @@ MCP 가용성/안정성 강화는 PASS WITH WARNINGS. GitOps 영속화와 런타
 - 호스트 마운트 MCP 소스를 수정해 백그라운드 DDNS 호출을 `await asyncio.to_thread(...)`로 실행하도록 변경하여 Cloudflare/공인 IP HTTP I/O가 MCP 이벤트 루프를 차단하지 않도록 함.
 - FastAPI lifespan에 `DDNS_ENABLED` 런타임 스위치를 추가했고 운영은 `DDNS_ENABLED=true`를 명시. 향후 격리 staging에서는 시작 전 반드시 `false`로 설정해야 함.
 - Secret 값은 Git으로 복사하지 않았으며 수정된 두 Python 파일 모두 문법 컴파일 검증 PASS. 롤백용 백업 파일도 호스트에 생성함.
+
+## DDNS 전체 A 레코드 동기화 강화
+- 외부 공인 IPv4가 변경되면 이전 공인 IP를 가리키는 Cloudflare의 모든 A 레코드를 새 IP로 갱신하도록 변경했습니다.
+- 각 레코드의 proxied/TTL 속성은 그대로 보존합니다.
+- SPF TXT의 `ip4:<이전IP>`도 새 공인 IP로 갱신합니다.
+- A/SPF 갱신 중 하나라도 실패하면 공인 IP 캐시를 전진시키지 않아 다음 주기에 자동 재시도합니다.
+- staging에서는 DDNS를 비활성화하고 모의 회귀 테스트로 대상 A/SPF만 선택되고 관계없는 A 레코드는 변경하지 않는 것을 검증했습니다.
+- Cloudflare 자격증명은 버전 관리 소스에 포함하지 않고 root 소유 read-only 비밀파일을 런타임에 마운트하도록 정리했습니다.
