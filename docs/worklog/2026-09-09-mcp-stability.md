@@ -55,3 +55,9 @@ The host-mounted MCP application source still contains a Cloudflare API credenti
 
 ## Final result
 PASS WITH WARNINGS for MCP availability/stability hardening. GitOps ownership and runtime stability fixes are deployed. The hardcoded Cloudflare credential and staging DDNS isolation switch remain unresolved and must not be marked PASS.
+
+## DDNS event-loop isolation follow-up
+- Root cause of intermittent readiness timeout was traced to synchronous `sync_ddns()` calls running directly inside the async DDNS background loop every 60 seconds.
+- The host-mounted MCP source was patched so background DDNS calls execute via `await asyncio.to_thread(...)`, preventing Cloudflare/public-IP HTTP I/O from blocking the FastAPI/MCP event loop.
+- Added a `DDNS_ENABLED` runtime switch to the host-mounted FastAPI lifespan; production explicitly sets `DDNS_ENABLED=true`. Isolated staging must set it to `false` before startup.
+- Source values/secrets were not copied into Git. Python syntax compilation passed for both patched files and rollback backups were created beside them.
