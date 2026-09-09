@@ -29,15 +29,27 @@ jobs:
           set -euo pipefail
           kustomize build apps > /tmp/apps.yaml
           test -s /tmp/apps.yaml
+      - name: Render isolated Moneyverse staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          kustomize build staging/wdmv-test > /tmp/wdmv-test.yaml
+          test -s /tmp/wdmv-test.yaml
+
       - name: Verify Moneyverse test isolation
         shell: bash
         run: |
           set -euo pipefail
-          test_root=apps/wdmv-test
+          test_root=staging/wdmv-test
           test -d "$test_root"
           grep -R -q 'test.easy-scraping.com' "$test_root"
           grep -R -q 'wdmv-test-db' "$test_root"
-          grep -R -q '1e89200336e55e8c3d8c329a8f9a20310d0ea495-test' "$test_root"
+          if grep -q 'namespace: wdmv-test' /tmp/apps.yaml || grep -q 'name: wdmv-test-' /tmp/apps.yaml; then
+            echo 'staging objects must not be rendered by the shared production apps Kustomization' >&2
+            exit 1
+          fi
+          grep -q 'name: wdmv-test' clusters/minipc/wdmv-test.yaml
+          grep -q 'path: ./staging/wdmv-test' clusters/minipc/wdmv-test.yaml
           if grep -R -E 'wdmvp-app|wdmvp-db-superuser|postgresql://[^@]*@wdmvp-db' "$test_root"; then
             echo 'test stack must not reference production application/database credentials or database' >&2
             exit 1
@@ -46,4 +58,4 @@ jobs:
           prod_namespace_refs="$(grep -h 'namespace: wdmvp' "$test_root/bootstrap-secrets.yaml" | wc -l | tr -d ' ')"
           test "$ghcr_refs" -eq 1
           test "$prod_namespace_refs" -eq 2
-          echo 'test stack is namespace/database isolated; only the scoped GHCR pull credential reader crosses namespaces'
+          echo 'staging is independently reconciled, namespace/database isolated, and cannot block production apps'
