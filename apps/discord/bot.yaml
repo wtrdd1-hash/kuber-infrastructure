@@ -40,7 +40,7 @@ spec:
         - name: bot
           # A local build with no registry behind it: imported from the
           # machine's backup, never pulled.
-          image: discord-bot-app:stable-20260909-tts5
+          image: discord-bot-app:stable-20260909-notts
           imagePullPolicy: IfNotPresent
           env:
             # It reached MariaDB on loopback when both were on the host.
@@ -48,13 +48,6 @@ spec:
             - { name: DB_PORT, value: "3306" }
             - { name: TZ, value: Asia/Seoul }
             - { name: PORT, value: "8070" }
-            - { name: TTS_VOICE_CHANNEL_ID, value: "1536572442422550538" }
-            - { name: MIKEVOICE_BASE_URL, value: "http://mikevoice-tts:3000" }
-            - name: MIKEVOICE_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: mikevoice-api-key
-                  key: API_KEY
           envFrom:
             - secretRef: { name: discord-bot-env }
           ports: [{ name: http, containerPort: 8070 }]
