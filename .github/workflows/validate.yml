@@ -42,6 +42,8 @@ jobs:
             echo 'test stack must not reference production application/database credentials or database' >&2
             exit 1
           fi
-          test "$(grep -R -c 'resourceNames: \["ghcr-pull"\]' "$test_root")" -eq 1
-          test "$(grep -R -c 'namespace: wdmvp' "$test_root/bootstrap-secrets.yaml")" -eq 2
+          ghcr_refs="$(grep -R -h 'resourceNames: \["ghcr-pull"\]' "$test_root" | wc -l | tr -d ' ')"
+          prod_namespace_refs="$(grep -h 'namespace: wdmvp' "$test_root/bootstrap-secrets.yaml" | wc -l | tr -d ' ')"
+          test "$ghcr_refs" -eq 1
+          test "$prod_namespace_refs" -eq 2
           echo 'test stack is namespace/database isolated; only the scoped GHCR pull credential reader crosses namespaces'
