@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gpt-plugin-ingress
+  namespace: gpt-plugin
+  annotations:
+    ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.priority: "100"
+    traefik.ingress.kubernetes.io/transport.respondingTimeouts.readTimeout: "3600s"
+    traefik.ingress.kubernetes.io/transport.respondingTimeouts.writeTimeout: "3600s"
+    traefik.ingress.kubernetes.io/transport.respondingTimeouts.idleTimeout: "3600s"
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: gpt.easy-scraping.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gpt-plugin-backend
+                port:
+                  number: 8000
