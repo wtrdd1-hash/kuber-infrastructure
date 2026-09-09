@@ -40,7 +40,7 @@ spec:
         - name: bot
           # A local build with no registry behind it: imported from the
           # machine's backup, never pulled.
-          image: discord-bot-app:stable-20260909-tts3
+          image: discord-bot-app:stable-20260909-tts4
           imagePullPolicy: IfNotPresent
           env:
             # It reached MariaDB on loopback when both were on the host.
