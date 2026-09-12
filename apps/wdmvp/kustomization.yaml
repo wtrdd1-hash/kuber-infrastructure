@@ -6,6 +6,8 @@ resources:
   - photos.yaml
   - postgres.yaml
   - backup-cronjob.yaml
+  - recovery-postgres.yaml
+  - recovery-refresh-cronjob.yaml
   - backend.yaml
   - frontend.yaml
   - ingress.yaml
