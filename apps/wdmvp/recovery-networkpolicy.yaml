@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: wdmvp-recovery-db-ingress
+  namespace: wdmvp
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: wdmvp-recovery-db
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: wdmvp-recovery-refresh
+      ports:
+        - protocol: TCP
+          port: 5432
