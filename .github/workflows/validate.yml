@@ -58,4 +58,19 @@ jobs:
           prod_namespace_refs="$(grep -h 'namespace: wdmvp' "$test_root/bootstrap-secrets.yaml" | wc -l | tr -d ' ')"
           test "$ghcr_refs" -eq 1
           test "$prod_namespace_refs" -eq 2
-          echo 'staging is independently reconciled, namespace/database isolated, and cannot block production apps'
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          root = Path('staging/wdmv-test')
+          values = []
+          for path in (root/'backend.yaml', root/'frontend.yaml'):
+              text = path.read_text()
+              values += re.findall(r'moneyverse\.openai/candidate-sha: "([0-9a-f]{40})"', text)
+              values += re.findall(r'ghcr\.io/wtrdd1-hash/wdmv/(?:backend|frontend):([0-9a-f]{40})-test', text)
+          values += re.findall(r'TEST_SOURCE_SHA, value: "([0-9a-f]{40})"', (root/'backend.yaml').read_text())
+          values += re.findall(r'TEST_SOURCE_SHA, value: "([0-9a-f]{40})"', (root/'postgres.yaml').read_text())
+          if len(values) != 6 or len(set(values)) != 1:
+              raise SystemExit(f'test candidate parity failure: {values}')
+          print(f'test candidate parity verified: {values[0]}')
+          PY
+          echo 'staging is independently reconciled, namespace/database isolated, SHA-pinned, and cannot block production apps'

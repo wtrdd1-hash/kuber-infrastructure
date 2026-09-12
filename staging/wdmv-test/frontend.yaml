@@ -26,7 +26,7 @@ spec:
       labels:
         app.kubernetes.io/name: wdmv-test-frontend
         app.kubernetes.io/environment: test
-        moneyverse.openai/candidate-sha: "133a241396fad7d3db6f71293b4481b20c768da1"
+        moneyverse.openai/candidate-sha: "7f66f81fc198b9b636e03aa34de4d0ec388662c0"
     spec:
       imagePullSecrets:
         - name: wdmv-test-registry
