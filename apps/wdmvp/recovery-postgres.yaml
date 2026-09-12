@@ -1,0 +1,86 @@
+# Recovery-only PostgreSQL target. This is not an application database and is
+# not a substitute for separate-media encrypted backups.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wdmvp-recovery-db
+  namespace: wdmvp
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: wdmvp-recovery-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: wdmvp-recovery-db
+  namespace: wdmvp
+spec:
+  serviceName: wdmvp-recovery-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wdmvp-recovery-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wdmvp-recovery-db
+        app.kubernetes.io/component: recovery
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: postgres:17.11-alpine
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: POSTGRES_USER
+              value: moneyverse_recovery_admin
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wdmvp-db-superuser
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              value: moneyverse_recovery
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - name: postgres
+              containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U moneyverse_recovery_admin -d moneyverse_recovery"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U moneyverse_recovery_admin -d moneyverse_recovery"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 1Gi }
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 20Gi
