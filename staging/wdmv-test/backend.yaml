@@ -120,6 +120,10 @@ spec:
           ports:
             - name: http
               containerPort: 3000
+          startupProbe:
+            httpGet: { path: /health, port: 3000 }
+            periodSeconds: 5
+            failureThreshold: 24
           readinessProbe:
             httpGet: { path: /health, port: 3000 }
             initialDelaySeconds: 10
