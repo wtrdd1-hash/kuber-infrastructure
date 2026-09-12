@@ -68,10 +68,22 @@ jobs:
               text, n = re.subn(rf'ghcr\.io/wtrdd1-hash/wdmv/{component}:[0-9a-f]{{40}}{re.escape(suffix)}', f'ghcr.io/wtrdd1-hash/wdmv/{component}:{sha}{suffix}', text)
               if n != 1:
                   raise SystemExit(f'{path}: expected exactly one image reference, found {n}')
-              if target == 'test' and component == 'backend':
-                  text = re.sub(r'moneyverse\.openai/candidate-sha: "[0-9a-f]{40}"', f'moneyverse.openai/candidate-sha: "{sha}"', text)
-                  text = re.sub(r'TEST_SOURCE_SHA, value: "[0-9a-f]{40}"', f'TEST_SOURCE_SHA, value: "{sha}"', text)
+              if target == 'test':
+                  text, labels = re.subn(r'moneyverse\.openai/candidate-sha: "[0-9a-f]{40}"', f'moneyverse.openai/candidate-sha: "{sha}"', text)
+                  if labels != 1:
+                      raise SystemExit(f'{path}: expected exactly one candidate label, found {labels}')
+                  if component == 'backend':
+                      text, sources = re.subn(r'TEST_SOURCE_SHA, value: "[0-9a-f]{40}"', f'TEST_SOURCE_SHA, value: "{sha}"', text)
+                      if sources != 1:
+                          raise SystemExit(f'{path}: expected exactly one backend source SHA, found {sources}')
               path.write_text(text)
+          if target == 'test':
+              postgres = pathlib.Path('staging/wdmv-test/postgres.yaml')
+              text = postgres.read_text()
+              text, sources = re.subn(r'TEST_SOURCE_SHA, value: "[0-9a-f]{40}"', f'TEST_SOURCE_SHA, value: "{sha}"', text)
+              if sources != 1:
+                  raise SystemExit(f'{postgres}: expected exactly one database source SHA, found {sources}')
+              postgres.write_text(text)
       - name: Create reviewed GitOps promotion PR
         shell: bash
         env:
