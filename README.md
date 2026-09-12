@@ -96,3 +96,9 @@ right sequence — started from [minco](https://github.com/mincomk)'s
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE).
+
+## Woldeok Moneyverse automatic release reconciliation (v2026.09.12.13)
+
+`wdmv-auto-reconcile.yml` checks the application repository on a five-minute GitHub Actions schedule. It promotes only the latest successful `main` Test Candidate SHA into the isolated `wdmv-test` manifests. Production is changed only when the application repository has emitted a successful `production-ready` deployment for that same SHA and the exact SHA plus backend/database smoke path are still healthy on `test.easy-scraping.com`.
+
+The workflow writes only GitOps image/source references. Flux remains responsible for cluster mutation. Test (`wdmv-test`) and Production (`wdmvp`) keep separate namespaces and PostgreSQL databases. Production post-reconcile smoke requires the exact SHA on `easy-scraping.com`, `/status`, and the public catalog backend/database path.
