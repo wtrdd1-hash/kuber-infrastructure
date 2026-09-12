@@ -1,0 +1,94 @@
+name: Promote Woldeok Moneyverse
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        options: [test, production]
+      app_sha:
+        description: Exact 40-character application commit SHA
+        required: true
+        type: string
+      confirmation:
+        description: Use PROMOTE_PRODUCTION for production; TEST for test
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: wdmv-promote-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  prepare-promotion:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Validate inputs
+        shell: bash
+        env:
+          APP_SHA: ${{ inputs.app_sha }}
+          TARGET: ${{ inputs.environment }}
+          CONFIRM: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          [[ "$APP_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'app_sha must be a full lowercase SHA'; exit 1; }
+          if [[ "$TARGET" == production ]]; then
+            [[ "$CONFIRM" == PROMOTE_PRODUCTION ]] || { echo 'production confirmation mismatch'; exit 1; }
+          else
+            [[ "$CONFIRM" == TEST ]] || { echo 'test confirmation mismatch'; exit 1; }
+          fi
+      - name: Patch exact-SHA image references
+        shell: python
+        env:
+          APP_SHA: ${{ inputs.app_sha }}
+          TARGET: ${{ inputs.environment }}
+        run: |
+          import os, pathlib, re
+          sha = os.environ['APP_SHA']
+          target = os.environ['TARGET']
+          if target == 'test':
+              files = [pathlib.Path('staging/wdmv-test/backend.yaml'), pathlib.Path('staging/wdmv-test/frontend.yaml')]
+              suffix = '-test'
+          else:
+              files = [pathlib.Path('apps/wdmvp/backend.yaml'), pathlib.Path('apps/wdmvp/frontend.yaml')]
+              suffix = '-production'
+          for path in files:
+              text = path.read_text()
+              component = 'backend' if 'backend' in path.name else 'frontend'
+              text, n = re.subn(rf'ghcr\.io/wtrdd1-hash/wdmv/{component}:[0-9a-f]{{40}}{re.escape(suffix)}', f'ghcr.io/wtrdd1-hash/wdmv/{component}:{sha}{suffix}', text)
+              if n != 1:
+                  raise SystemExit(f'{path}: expected exactly one image reference, found {n}')
+              if target == 'test' and component == 'backend':
+                  text = re.sub(r'moneyverse\.openai/candidate-sha: "[0-9a-f]{40}"', f'moneyverse.openai/candidate-sha: "{sha}"', text)
+                  text = re.sub(r'TEST_SOURCE_SHA, value: "[0-9a-f]{40}"', f'TEST_SOURCE_SHA, value: "{sha}"', text)
+              path.write_text(text)
+      - name: Create reviewed GitOps promotion PR
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APP_SHA: ${{ inputs.app_sha }}
+          TARGET: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          short=${APP_SHA:0:12}
+          branch="promote/wdmv-${TARGET}-${short}"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git checkout -b "$branch"
+          git add staging/wdmv-test apps/wdmvp
+          git diff --cached --check
+          git commit -m "promote(wdmv): ${TARGET} ${short}"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "promote(wdmv): ${TARGET} ${short}" \
+            --body "Exact application SHA: \`${APP_SHA}\`. This PR changes only GitOps image/source references. Test must be verified before a production promotion PR is merged."
