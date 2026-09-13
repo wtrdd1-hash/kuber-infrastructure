@@ -1,0 +1,54 @@
+name: Prepare WDMV Test 697e Once
+
+on:
+  push:
+    branches:
+      - promote/wdmv-test-697e9ceb-v2026.09.13.37
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Pin exact application SHA and remove one-time workflow
+        shell: python
+        env:
+          APP_SHA: 697e9ceb5c81a7511040bc66e81c0a925407399a
+        run: |
+          import os, pathlib, re
+          sha = os.environ['APP_SHA']
+          root = pathlib.Path('staging/wdmv-test')
+          for path in [root/'backend.yaml', root/'frontend.yaml']:
+              text = path.read_text()
+              component = 'backend' if path.name == 'backend.yaml' else 'frontend'
+              text, n = re.subn(rf'ghcr\.io/wtrdd1-hash/wdmv/{component}:[0-9a-f]{{40}}-test', f'ghcr.io/wtrdd1-hash/wdmv/{component}:{sha}-test', text)
+              if n != 1: raise SystemExit(f'{path}: image replacement count {n}')
+              text, n = re.subn(r'moneyverse\.openai/candidate-sha: "[0-9a-f]{40}"', f'moneyverse.openai/candidate-sha: "{sha}"', text)
+              if n != 1: raise SystemExit(f'{path}: candidate label replacement count {n}')
+              if component == 'backend':
+                  text, n = re.subn(r'TEST_SOURCE_SHA, value: "[0-9a-f]{40}"', f'TEST_SOURCE_SHA, value: "{sha}"', text)
+                  if n != 1: raise SystemExit(f'{path}: source SHA replacement count {n}')
+              path.write_text(text)
+          postgres = root/'postgres.yaml'
+          text = postgres.read_text()
+          text, n = re.subn(r'TEST_SOURCE_SHA, value: "[0-9a-f]{40}"', f'TEST_SOURCE_SHA, value: "{sha}"', text)
+          if n != 1: raise SystemExit(f'{postgres}: source SHA replacement count {n}')
+          postgres.write_text(text)
+          pathlib.Path('.github/workflows/promote-wdmv-test-697e-once.yml').unlink()
+      - name: Commit exact Test promotion
+        env:
+          APP_SHA: 697e9ceb5c81a7511040bc66e81c0a925407399a
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add staging/wdmv-test .github/workflows/promote-wdmv-test-697e-once.yml
+          git commit -m "promote(wdmv): test ${APP_SHA:0:12} v2026.09.13.37"
+          git push origin HEAD:promote/wdmv-test-697e9ceb-v2026.09.13.37
