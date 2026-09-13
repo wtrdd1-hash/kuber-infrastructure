@@ -1,0 +1,153 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: wdmv-test-registry-refresh
+  namespace: wdmv-test
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: wdmv-test-registry-refresh
+  namespace: wdmv-test
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: wdmv-test-registry-refresh
+  namespace: wdmv-test
+subjects:
+  - kind: ServiceAccount
+    name: wdmv-test-registry-refresh
+    namespace: wdmv-test
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: wdmv-test-registry-refresh
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: wdmv-test-registry-source-reader
+  namespace: wdmvp
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["ghcr-pull"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: wdmv-test-registry-source-reader
+  namespace: wdmvp
+subjects:
+  - kind: ServiceAccount
+    name: wdmv-test-registry-refresh
+    namespace: wdmv-test
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: wdmv-test-registry-source-reader
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: wdmv-test-registry-refresh-v1
+  namespace: wdmv-test
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wdmv-test-registry-refresh
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: wdmv-test-registry-refresh
+      automountServiceAccountToken: true
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+      containers:
+        - name: refresh
+          image: python:3.13-alpine
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          env:
+            - { name: PYTHONDONTWRITEBYTECODE, value: "1" }
+            - { name: PYTHONUNBUFFERED, value: "1" }
+            - { name: HOME, value: /tmp }
+          resources:
+            requests: { cpu: 10m, memory: 24Mi }
+            limits: { memory: 96Mi }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+          command: ["python", "-c"]
+          args:
+            - |
+              import json
+              import os
+              import ssl
+              import urllib.error
+              import urllib.request
+
+              host = os.environ["KUBERNETES_SERVICE_HOST"]
+              port = os.environ["KUBERNETES_SERVICE_PORT_HTTPS"]
+              api = f"https://{host}:{port}"
+              token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+              ca_path = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+              with open(token_path, "r", encoding="utf-8") as handle:
+                  token = handle.read().strip()
+              context = ssl.create_default_context(cafile=ca_path)
+              headers = {"Authorization": f"Bearer {token}"}
+
+              def request(path, method="GET", payload=None):
+                  body = None if payload is None else json.dumps(payload, separators=(",", ":")).encode()
+                  req_headers = dict(headers)
+                  if body is not None:
+                      req_headers["Content-Type"] = "application/json"
+                  req = urllib.request.Request(api + path, data=body, headers=req_headers, method=method)
+                  with urllib.request.urlopen(req, context=context, timeout=15) as response:
+                      data = response.read()
+                      return json.loads(data) if data else None
+
+              source = request("/api/v1/namespaces/wdmvp/secrets/ghcr-pull")
+              docker_config = source.get("data", {}).get(".dockerconfigjson")
+              if not docker_config:
+                  raise RuntimeError("production ghcr-pull secret is missing .dockerconfigjson")
+
+              target_path = "/api/v1/namespaces/wdmv-test/secrets/wdmv-test-registry"
+              payload = {
+                  "apiVersion": "v1",
+                  "kind": "Secret",
+                  "metadata": {"name": "wdmv-test-registry", "namespace": "wdmv-test"},
+                  "type": "kubernetes.io/dockerconfigjson",
+                  "data": {".dockerconfigjson": docker_config},
+              }
+
+              try:
+                  current = request(target_path)
+              except urllib.error.HTTPError as error:
+                  if error.code != 404:
+                      raise
+                  request("/api/v1/namespaces/wdmv-test/secrets", "POST", payload)
+                  print("created refreshed test registry secret")
+              else:
+                  payload["metadata"]["resourceVersion"] = current["metadata"]["resourceVersion"]
+                  request(target_path, "PUT", payload)
+                  print("updated refreshed test registry secret")
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
