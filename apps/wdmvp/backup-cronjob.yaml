@@ -3,6 +3,10 @@ kind: CronJob
 metadata:
   name: wdmvp-db-backup
   namespace: wdmvp
+  labels:
+    app.kubernetes.io/name: wdmvp-db-backup
+    app.kubernetes.io/component: backup
+    app.kubernetes.io/version: "v2026.09.12.1"
 spec:
   schedule: "17 * * * *"
   timeZone: Asia/Seoul
@@ -19,6 +23,8 @@ spec:
         metadata:
           labels:
             app.kubernetes.io/name: wdmvp-db-backup
+            app.kubernetes.io/component: backup
+            app.kubernetes.io/version: "v2026.09.12.1"
         spec:
           restartPolicy: Never
           automountServiceAccountToken: false
@@ -50,31 +56,45 @@ spec:
                   base="/backup/wdmvp-moneyverse_production-${stamp}"
                   partial="${base}.dump.partial"
                   final="${base}.dump"
-                  trap 'rm -f "$partial"' EXIT
+                  checksum="${final}.sha256"
+                  trap 'rm -f "$partial" "$checksum.partial"' EXIT
+
+                  echo "backup start: ${stamp}"
                   pg_dump -h wdmvp-db -U moneyverse_migrator \
                     -d moneyverse_production --no-owner --no-privileges \
                     -Fc -Z 9 -f "$partial"
+
+                  # Refuse to publish a dump that PostgreSQL cannot parse.
                   pg_restore -l "$partial" >/dev/null
                   mv "$partial" "$final"
+
                   (
                     cd /backup
-                    sha256sum "$(basename "$final")" > "$(basename "$final").sha256"
+                    sha256sum "$(basename "$final")" > "$(basename "$checksum").partial"
+                    sha256sum -c "$(basename "$checksum").partial" >/dev/null
+                    mv "$(basename "$checksum").partial" "$(basename "$checksum")"
                   )
                   trap - EXIT
-                  # Keep the five most recent dumps, not a window of days. The
-                  # stamp is %Y%m%dT%H%M%SZ, so a reverse lexicographic sort is
-                  # newest-first and needs no mtime and no `ls -t` parsing. The
-                  # checksum goes with its dump; an orphan of either is a file
-                  # nobody can verify.
+
+                  # Keep 48 hourly restore points. This gives two full days to
+                  # notice a bad migration or accidental deletion while keeping
+                  # host-path growth bounded. A separate recovery CronJob reads
+                  # the newest published dump and proves it can actually restore.
                   cd /backup
                   ls -1 wdmvp-moneyverse_production-*.dump 2>/dev/null \
-                    | sort -r | tail -n +6 \
+                    | sort -r | tail -n +49 \
                     | while IFS= read -r old; do rm -f -- "$old" "$old.sha256"; done
-                  # A dump interrupted by something the EXIT trap does not see --
-                  # OOM kill, node reboot -- leaves a .partial that no rule above
-                  # matches, so it would sit there forever.
+
+                  # An OOM kill or node reboot can bypass the shell EXIT trap.
+                  # Clean abandoned partials only after two hours so a live job
+                  # can never delete another run's in-progress output.
                   find /backup -maxdepth 1 -type f \
-                    -name 'wdmvp-moneyverse_production-*.dump.partial' -mmin +120 -delete
+                    \( -name 'wdmvp-moneyverse_production-*.dump.partial' \
+                       -o -name 'wdmvp-moneyverse_production-*.dump.sha256.partial' \) \
+                    -mmin +120 -delete
+
+                  bytes="$(wc -c < "$final")"
+                  echo "backup complete: $(basename "$final") (${bytes} bytes)"
               resources:
                 requests:
                   cpu: 50m
