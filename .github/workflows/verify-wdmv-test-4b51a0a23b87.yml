@@ -1,0 +1,40 @@
+name: Verify WDMV Test Candidate 4b51a0a23b87
+
+on:
+  push:
+    branches:
+      - verify/wdmv-test-4b51a0a23b87-v2026.09.15.103
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify exact SHA, backend/database smoke, status and noindex
+        shell: bash
+        env:
+          EXPECTED_SHA: 4b51a0a23b87143bcf751638f6b290ff6c1b6f35
+          TEST_ORIGIN: https://test.easy-scraping.com
+        run: |
+          set -euo pipefail
+          matched=false
+          for _ in $(seq 1 72); do
+            version="$(curl -fsS --max-time 10 "$TEST_ORIGIN/api/version" 2>/dev/null | jq -r '.id // empty' || true)"
+            if [[ "$version" == "$EXPECTED_SHA" ]]; then
+              matched=true
+              break
+            fi
+            sleep 5
+          done
+          [[ "$matched" == true ]] || { echo "::error::test did not serve exact SHA $EXPECTED_SHA"; exit 1; }
+
+          curl -fsS --max-time 15 "$TEST_ORIGIN/app-api/v1/shop/public-catalog" \
+            | jq -e '.catalogItems | type == "array" and length > 0' >/dev/null
+          curl -fsS --max-time 15 "$TEST_ORIGIN/status" >/tmp/status.html
+          test -s /tmp/status.html
+          curl -fsSI --max-time 10 "$TEST_ORIGIN/" | grep -Eiq '^x-robots-tag:.*noindex'
+          curl -fsS --max-time 15 "$TEST_ORIGIN/work" >/tmp/work.html
+          test -s /tmp/work.html
+          echo "isolated Test serves exact SHA $EXPECTED_SHA; DB-backed catalog, status, work route and noindex smoke passed"
