@@ -6,7 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: wdmvp-db-backup
     app.kubernetes.io/component: backup
-    app.kubernetes.io/version: "v2026.09.12.1"
+    app.kubernetes.io/version: "v2026.09.14.78"
 spec:
   schedule: "17 * * * *"
   timeZone: Asia/Seoul
@@ -24,7 +24,7 @@ spec:
           labels:
             app.kubernetes.io/name: wdmvp-db-backup
             app.kubernetes.io/component: backup
-            app.kubernetes.io/version: "v2026.09.12.1"
+            app.kubernetes.io/version: "v2026.09.14.78"
         spec:
           restartPolicy: Never
           automountServiceAccountToken: false
