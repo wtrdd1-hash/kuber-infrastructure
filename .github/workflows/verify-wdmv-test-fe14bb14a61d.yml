@@ -19,6 +19,7 @@ jobs:
           TEST_ORIGIN: https://test.easy-scraping.com
         run: |
           set -euo pipefail
+          echo "waiting for GitOps Test reconciliation of $EXPECTED_SHA"
           matched=false
           last_version=""
           for _ in $(seq 1 180); do
