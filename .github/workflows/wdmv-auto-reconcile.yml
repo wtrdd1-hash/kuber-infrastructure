@@ -38,6 +38,21 @@ jobs:
             echo 'ready=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
+
+          current_test_sha="$(sed -n 's/.*moneyverse.openai\/candidate-sha: "\([0-9a-f]\{40\}\)".*/\1/p' staging/wdmv-test/backend.yaml | head -n 1)"
+          if [[ -n "$current_test_sha" && "$current_test_sha" != "$main_sha" ]]; then
+            open_pr="$(gh api --paginate "repos/${APP_REPO}/pulls?state=open&per_page=100" \
+              --jq ".[] | select(.head.sha == \"${current_test_sha}\") | .number" | head -n 1)"
+            validated_pr_candidate="$(gh api --method GET "repos/${APP_REPO}/actions/workflows/test-candidate.yml/runs" \
+              -f status=success -f per_page=50 \
+              --jq ".workflow_runs[] | select(.head_sha == \"${current_test_sha}\") | .id" | head -n 1)"
+            if [[ -n "$open_pr" && -n "$validated_pr_candidate" ]]; then
+              echo "preserving active PR test candidate ${current_test_sha} from PR #${open_pr}; main ${main_sha} will not overwrite staging"
+              echo 'ready=false' >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
           echo "sha=$test_sha" >> "$GITHUB_OUTPUT"
           echo 'ready=true' >> "$GITHUB_OUTPUT"
 
