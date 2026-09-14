@@ -47,6 +47,8 @@ spec:
             - { name: NODE_ENV, value: production }
             - { name: PORT, value: "3000" }
             - { name: HOSTNAME, value: 0.0.0.0 }
+            - { name: APP_BASE_URL, value: https://test.easy-scraping.com }
+            - { name: SEO_INDEXING_ENABLED, value: "false" }
             - { name: API_ORIGIN, value: http://wdmv-test-backend:3000 }
           envFrom:
             - secretRef:
