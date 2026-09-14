@@ -24,11 +24,11 @@ spec:
   template:
     metadata:
       annotations:
-        moneyverse.openai/redeploy-token: "v2026.09.15.104"
+        moneyverse.openai/redeploy-token: "v2026.09.15.106"
       labels:
         app.kubernetes.io/name: wdmv-test-frontend
         app.kubernetes.io/environment: test
-        moneyverse.openai/candidate-sha: "fe14bb14a61dcd6cb7fa277cec7878d46dfac292"
+        moneyverse.openai/candidate-sha: "dd42f5f53c398506fb91a10e47e1b8d92d992502"
     spec:
       imagePullSecrets:
         - name: wdmv-test-registry
@@ -38,7 +38,7 @@ spec:
         runAsGroup: 1000
       containers:
         - name: frontend
-          image: ghcr.io/wtrdd1-hash/wdmv/frontend:fe14bb14a61dcd6cb7fa277cec7878d46dfac292-test
+          image: ghcr.io/wtrdd1-hash/wdmv/frontend:dd42f5f53c398506fb91a10e47e1b8d92d992502-test
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -49,6 +49,8 @@ spec:
             - { name: NODE_ENV, value: production }
             - { name: PORT, value: "3000" }
             - { name: HOSTNAME, value: 0.0.0.0 }
+            - { name: APP_BASE_URL, value: https://test.easy-scraping.com }
+            - { name: SEO_INDEXING_ENABLED, value: "false" }
             - { name: API_ORIGIN, value: http://wdmv-test-backend:3000 }
           envFrom:
             - secretRef:
