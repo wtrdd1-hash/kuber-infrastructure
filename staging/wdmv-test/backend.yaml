@@ -28,7 +28,7 @@ spec:
       labels:
         app.kubernetes.io/name: wdmv-test-backend
         app.kubernetes.io/environment: test
-        moneyverse.openai/candidate-sha: "9644f778ba2eeaf4a9d41dc68203a3627783f0f6"
+        moneyverse.openai/candidate-sha: "dbcdf56bf3f2d75806016d35c2bfb55d021e8600"
     spec:
       imagePullSecrets:
         - name: wdmv-test-registry
@@ -47,7 +47,7 @@ spec:
             capabilities:
               drop: [ALL]
           env:
-            - { name: TEST_SOURCE_SHA, value: "9644f778ba2eeaf4a9d41dc68203a3627783f0f6" }
+            - { name: TEST_SOURCE_SHA, value: "dbcdf56bf3f2d75806016d35c2bfb55d021e8600" }
             - { name: PGHOST, value: wdmv-test-db }
             - { name: PGPORT, value: "5432" }
             - { name: PGUSER, value: moneyverse_migrator }
@@ -78,7 +78,7 @@ spec:
             - { name: tmp, mountPath: /tmp }
       containers:
         - name: backend
-          image: ghcr.io/wtrdd1-hash/wdmv/backend:9644f778ba2eeaf4a9d41dc68203a3627783f0f6-test
+          image: ghcr.io/wtrdd1-hash/wdmv/backend:dbcdf56bf3f2d75806016d35c2bfb55d021e8600-test
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
