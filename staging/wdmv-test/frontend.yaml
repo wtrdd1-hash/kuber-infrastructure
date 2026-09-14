@@ -23,6 +23,8 @@ spec:
       app.kubernetes.io/name: wdmv-test-frontend
   template:
     metadata:
+      annotations:
+        moneyverse.openai/redeploy-token: "v2026.09.14.85"
       labels:
         app.kubernetes.io/name: wdmv-test-frontend
         app.kubernetes.io/environment: test
