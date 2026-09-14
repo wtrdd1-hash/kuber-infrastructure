@@ -3,6 +3,13 @@ name: Auto Reconcile Woldeok Moneyverse
 on:
   schedule:
     - cron: '*/5 * * * *'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/wdmv-auto-reconcile.yml'
+      - 'clusters/minipc/flux-system/gotk-sync.yaml'
+      - 'clusters/minipc/wdmv-test.yaml'
   workflow_dispatch:
 
 permissions:
@@ -21,6 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Resolve latest fully built main test candidate
@@ -98,6 +106,7 @@ jobs:
             git config user.email 41898282+github-actions[bot]@users.noreply.github.com
             git add staging/wdmv-test
             git commit -m "auto(wdmv): test ${APP_SHA:0:12}"
+            git pull --rebase origin main
             git push origin HEAD:main
           fi
 
@@ -170,6 +179,7 @@ jobs:
             git config user.email 41898282+github-actions[bot]@users.noreply.github.com
             git add apps/wdmvp/backend.yaml apps/wdmvp/frontend.yaml
             git commit -m "auto(wdmv): production ${APP_SHA:0:12}"
+            git pull --rebase origin main
             git push origin HEAD:main
           fi
 
