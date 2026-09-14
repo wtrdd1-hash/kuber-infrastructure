@@ -1,0 +1,48 @@
+name: Verify WDMV Test Candidate b3f28185107a
+
+on:
+  push:
+    branches:
+      - verify/wdmv-test-b3f28185107a-v2026.09.15.109
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify exact SHA, backend/database smoke, critical routes and noindex
+        shell: bash
+        env:
+          EXPECTED_SHA: b3f28185107a2f6f4a8bd389016de778df08b747
+          TEST_ORIGIN: https://test.easy-scraping.com
+        run: |
+          set -euo pipefail
+          echo "waiting for GitOps Test reconciliation of $EXPECTED_SHA"
+          matched=false
+          last_version=""
+          for _ in $(seq 1 180); do
+            version="$(curl -fsS --max-time 10 "$TEST_ORIGIN/api/version" 2>/dev/null | jq -r '.id // empty' || true)"
+            if [[ -n "$version" && "$version" != "$last_version" ]]; then
+              echo "observed Test SHA: $version"
+              last_version="$version"
+            fi
+            if [[ "$version" == "$EXPECTED_SHA" ]]; then
+              matched=true
+              break
+            fi
+            sleep 5
+          done
+          [[ "$matched" == true ]] || { echo "::error::test did not serve exact SHA $EXPECTED_SHA; last observed=${last_version:-none}"; exit 1; }
+
+          curl -fsS --max-time 15 "$TEST_ORIGIN/app-api/v1/shop/public-catalog" \
+            | jq -e '.catalogItems | type == "array" and length > 0' >/dev/null
+          curl -fsS --max-time 15 "$TEST_ORIGIN/status" >/tmp/status.html
+          test -s /tmp/status.html
+          curl -fsSI --max-time 10 "$TEST_ORIGIN/" | grep -Eiq '^x-robots-tag:.*noindex'
+          curl -fsS --max-time 15 "$TEST_ORIGIN/work" >/tmp/work.html
+          test -s /tmp/work.html
+          curl -fsS --max-time 15 "$TEST_ORIGIN/login" >/tmp/login.html
+          test -s /tmp/login.html
+          echo "isolated Test serves exact SHA $EXPECTED_SHA; DB-backed catalog, status, work/login routes and noindex smoke passed"
