@@ -1,0 +1,28 @@
+name: Probe WDMV Test Candidate b3f28185107a
+
+on:
+  push:
+    branches:
+      - verify/wdmv-test-b3f28185107a-v2026.09.15.109
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe public Test version once
+        shell: bash
+        env:
+          EXPECTED_SHA: b3f28185107a2f6f4a8bd389016de778df08b747
+          TEST_ORIGIN: https://test.easy-scraping.com
+        run: |
+          set -euo pipefail
+          version="$(curl -fsS --max-time 15 "$TEST_ORIGIN/api/version" | jq -r '.id // empty')"
+          echo "observed=$version expected=$EXPECTED_SHA"
+          if [[ "$version" != "$EXPECTED_SHA" ]]; then
+            echo "::error title=Test exact-SHA mismatch::observed=$version expected=$EXPECTED_SHA"
+            exit 1
+          fi
+          echo "public Test exact SHA matched"
