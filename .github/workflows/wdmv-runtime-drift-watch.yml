@@ -1,0 +1,59 @@
+name: WDMV Runtime Drift Watch
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wdmv-runtime-drift-watch
+  cancel-in-progress: true
+
+jobs:
+  compare-desired-and-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - name: Compare exact SHAs and smoke public endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_desired="$(sed -n 's/.*moneyverse.openai\/candidate-sha: "\([0-9a-f]\{40\}\)".*/\1/p' staging/wdmv-test/backend.yaml | head -n1)"
+          prod_desired="$(sed -n 's#.*wdmv/backend:\([0-9a-f]\{40\}\)-production.*#\1#p' apps/wdmvp/backend.yaml | head -n1)"
+          [[ "$test_desired" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$prod_desired" =~ ^[0-9a-f]{40}$ ]]
+
+          probe() {
+            local name="$1" url="$2" expected="$3" live=""
+            for _ in $(seq 1 18); do
+              live="$(curl -fsS --max-time 10 "$url/api/version" 2>/dev/null | jq -r '.id // empty' || true)"
+              [[ "$live" == "$expected" ]] && break
+              sleep 10
+            done
+            echo "$name desired=$expected live=${live:-unavailable}"
+            if [[ "$live" != "$expected" ]]; then
+              echo "::error title=${name} runtime drift::desired ${expected}, live ${live:-unavailable}"
+              return 1
+            fi
+            curl -fsS --max-time 15 "$url/app-api/v1/shop/public-catalog" | jq -e '.catalogItems | type == "array" and length > 0' >/dev/null
+          }
+
+          test_failed=0
+          prod_failed=0
+          probe Test https://test.easy-scraping.com "$test_desired" || test_failed=1
+          probe Production https://easy-scraping.com "$prod_desired" || prod_failed=1
+
+          if [[ "$test_failed" -eq 0 ]]; then
+            curl -fsSI --max-time 10 https://test.easy-scraping.com/ | grep -Eiq '^x-robots-tag:.*noindex'
+          fi
+
+          if (( test_failed || prod_failed )); then
+            echo '::error::GitOps desired state is not converged to the public runtime. Inspect Flux source-controller, kustomize-controller, image pull secrets, migration init containers, and rollout state before promotion.'
+            exit 1
+          fi
