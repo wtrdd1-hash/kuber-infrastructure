@@ -39,8 +39,9 @@ jobs:
         run: |
           set -euo pipefail
           main_sha="$(gh api "repos/${APP_REPO}/branches/main" --jq '.commit.sha')"
-          test_sha="$(gh api "repos/${APP_REPO}/actions/workflows/test-candidate.yml/runs?branch=main&status=success&per_page=10" \
-            --jq '.workflow_runs | map(select(.event == "push")) | .[0].head_sha // empty')"
+          test_sha="$(gh api "repos/${APP_REPO}/actions/workflows/test-candidate.yml/runs?branch=main&status=success&per_page=20" \
+            | jq -r --arg main_sha "$main_sha" \
+              '.workflow_runs | map(select((.event == "push" or .event == "workflow_dispatch") and .head_sha == $main_sha)) | .[0].head_sha // empty')"
           if [[ -z "$test_sha" || "$test_sha" != "$main_sha" ]]; then
             echo "latest main candidate is not ready yet: main=$main_sha candidate=${test_sha:-none}"
             echo 'ready=false' >> "$GITHUB_OUTPUT"
