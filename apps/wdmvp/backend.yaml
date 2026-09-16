@@ -48,7 +48,7 @@ spec:
         - name: backend
           # Immutable: the tag is the commit. IfNotPresent below therefore
           # never serves a stale image, and it saves a pull on every restart.
-          image: ghcr.io/wtrdd1-hash/wdmv/backend:3d87165f83bcb60903e85d4f3600fdf40074ef40-production
+          image: ghcr.io/wtrdd1-hash/wdmv/backend:18c7a1324013099e47b2d6e22c5108c4d378139c-production
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
