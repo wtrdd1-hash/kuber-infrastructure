@@ -6,7 +6,10 @@ kind: Kustomization
 metadata:
   name: wdmv-test
   namespace: flux-system
+  annotations:
+    reconcile.fluxcd.io/requestedAt: "2026-09-16T13:56:00+09:00"
 spec:
+  suspend: false
   dependsOn:
     - name: infrastructure-configs
   interval: 1m
