@@ -7,6 +7,10 @@ metadata:
   name: apps
   namespace: flux-system
 spec:
+  # Emergency fail-closed gate for Flux control-plane recovery. Keep
+  # production workloads frozen while the isolated wdmv-test stack converges.
+  # Remove only after exact-SHA Test verification succeeds.
+  suspend: true
   dependsOn:
     - name: infrastructure-configs
   interval: 10m
