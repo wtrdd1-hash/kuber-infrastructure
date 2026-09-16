@@ -196,7 +196,12 @@ jobs:
               curl -fsS --max-time 15 https://easy-scraping.com/app-api/v1/shop/public-catalog \
                 | jq -e '.catalogItems | type == "array" and length > 0' >/dev/null
               curl -fsS --max-time 15 https://easy-scraping.com/status >/dev/null
-              echo "production serves exact SHA $APP_SHA with backend/database smoke passing"
+              headers="$(curl -fsSI --max-time 10 https://easy-scraping.com/ || true)"
+              if grep -Eiq '^x-robots-tag:.*noindex' <<<"$headers"; then
+                echo '::error::production response is still marked noindex' >&2
+                exit 1
+              fi
+              echo "production serves exact SHA $APP_SHA with backend/database/SEO smoke passing"
               exit 0
             fi
             sleep 10
