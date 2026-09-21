@@ -54,6 +54,13 @@ spec:
               value: "3000"
             - name: HOSTNAME
               value: 0.0.0.0
+            - name: APP_BASE_URL
+              value: https://easy-scraping.com
+            # Keep runtime metadata/indexing aligned with the production image.
+            # Explicit env entries take precedence over envFrom secrets, so a
+            # stale shared secret cannot accidentally mark Production noindex.
+            - name: SEO_INDEXING_ENABLED
+              value: "true"
             # The browser never reaches the backend directly for most paths --
             # Next.js calls it server-side over the cluster network.
             - name: API_ORIGIN
@@ -79,8 +86,6 @@ spec:
             periodSeconds: 20
             failureThreshold: 5
           volumeMounts:
-            # The image runs read-only; Next.js still needs somewhere to write
-            # its cache and a scratch directory.
             - name: tmp
               mountPath: /tmp
             - name: next-cache
