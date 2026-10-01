@@ -89,6 +89,7 @@ spec:
               drop: [ALL]
           env:
             - { name: NODE_ENV, value: production }
+            - { name: LOCAL_AUTH_TEST_VERIFICATION_TOKEN_ENABLED, value: "true" }
             - { name: PORT, value: "3000" }
             - { name: HOST, value: 0.0.0.0 }
             - { name: PHOTO_STORAGE_DIR, value: /data/moneyverse/photos }
