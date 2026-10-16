@@ -62,7 +62,7 @@ spec:
                 secretKeyRef: { name: wdmv-test-db-superuser, key: POSTGRES_PASSWORD }
             - { name: POSTGRES_DB, value: moneyverse_test }
             - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
-            - { name: TEST_SOURCE_SHA, value: "3a3923baf5273a3c6a47184e547b1dc9f785b697" }
+            - { name: TEST_SOURCE_SHA, value: "3e44d78ab8c12a60e06fecb5dd62d9eae21339e2" }
             - name: APP_DB_PASSWORD
               valueFrom:
                 secretKeyRef: { name: wdmv-test-app, key: APP_DB_PASSWORD }
