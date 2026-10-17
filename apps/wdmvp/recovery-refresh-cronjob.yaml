@@ -3,6 +3,10 @@ kind: CronJob
 metadata:
   name: wdmvp-recovery-refresh
   namespace: wdmvp
+  labels:
+    app.kubernetes.io/name: wdmvp-recovery-refresh
+    app.kubernetes.io/component: recovery
+    app.kubernetes.io/version: "v2026.09.12.1"
 spec:
   schedule: "37 * * * *"
   timeZone: Asia/Seoul
@@ -20,6 +24,7 @@ spec:
           labels:
             app.kubernetes.io/name: wdmvp-recovery-refresh
             app.kubernetes.io/component: recovery
+            app.kubernetes.io/version: "v2026.09.12.1"
         spec:
           restartPolicy: Never
           automountServiceAccountToken: false
@@ -45,12 +50,34 @@ spec:
               args:
                 - |
                   umask 077
-                  src=/tmp/production.dump
-                  rm -f "$src"
+                  backup_dir=/backup
+                  src="$(find "$backup_dir" -maxdepth 1 -type f \
+                    -name 'wdmvp-moneyverse_production-*.dump' \
+                    | sort | tail -1)"
 
-                  pg_dump -h wdmvp-db -U moneyverse_migrator \
-                    -d moneyverse_production --no-owner --no-privileges \
-                    -Fc -Z 6 -f "$src"
+                  [ -n "$src" ] || {
+                    echo "no persisted production backup found in $backup_dir" >&2
+                    exit 1
+                  }
+                  checksum="${src}.sha256"
+                  [ -f "$checksum" ] || {
+                    echo "missing checksum for $src" >&2
+                    exit 1
+                  }
+
+                  # Fail closed if automatic backup has silently stopped. The
+                  # backup job runs hourly at :17 and this restore proof runs at
+                  # :37, so anything older than two hours is stale.
+                  if [ -n "$(find "$src" -mmin +120 -print)" ]; then
+                    echo "latest backup is older than two hours: $src" >&2
+                    exit 1
+                  fi
+
+                  echo "verifying persisted backup: $(basename "$src")"
+                  (
+                    cd "$backup_dir"
+                    sha256sum -c "$(basename "$checksum")"
+                  )
                   pg_restore -l "$src" >/dev/null
 
                   psql -h wdmvp-recovery-db -U moneyverse_recovery_admin -d postgres \
@@ -66,16 +93,27 @@ spec:
                     -d moneyverse_recovery --no-owner --no-privileges \
                     --exit-on-error "$src"
 
+                  # A completed restore must be queryable. Keep this deliberately
+                  # generic so schema evolution does not make the backup monitor
+                  # itself brittle.
                   psql -h wdmvp-recovery-db -U moneyverse_recovery_admin \
                     -d moneyverse_recovery -v ON_ERROR_STOP=1 \
                     -c 'SELECT 1;' >/dev/null
+                  echo "restore verification complete: $(basename "$src")"
               resources:
                 requests: { cpu: 50m, memory: 128Mi }
                 limits: { cpu: 750m, memory: 768Mi }
               volumeMounts:
+                - name: backup
+                  mountPath: /backup
+                  readOnly: true
                 - name: tmp
                   mountPath: /tmp
           volumes:
+            - name: backup
+              hostPath:
+                path: /home/wtrdd/moneyverse-backups/k8s
+                type: Directory
             - name: tmp
               emptyDir:
                 sizeLimit: 1Gi
