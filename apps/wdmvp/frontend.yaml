@@ -40,7 +40,7 @@ spec:
         - name: ghcr-pull
       containers:
         - name: frontend
-          image: ghcr.io/wtrdd1-hash/wdmv/frontend:bca8d54a6ef5b2a4903429c9db02e662d2a66cd2-production
+          image: ghcr.io/wtrdd1-hash/wdmv/frontend:6f697e74b7bf0cd1e4521d36534cfd9c140f8010-production
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
