@@ -28,7 +28,7 @@ spec:
       labels:
         app.kubernetes.io/name: wdmv-test-frontend
         app.kubernetes.io/environment: test
-        moneyverse.openai/candidate-sha: "6a0d061d53fd87c28421e7c036967aa708e25fb9"
+        moneyverse.openai/candidate-sha: "04ef008aeff2516df4afc891430227a40a12418e"
     spec:
       imagePullSecrets:
         - name: wdmv-test-registry
@@ -38,7 +38,7 @@ spec:
         runAsGroup: 1000
       containers:
         - name: frontend
-          image: ghcr.io/wtrdd1-hash/wdmv/frontend:6a0d061d53fd87c28421e7c036967aa708e25fb9-test
+          image: ghcr.io/wtrdd1-hash/wdmv/frontend:04ef008aeff2516df4afc891430227a40a12418e-test
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
